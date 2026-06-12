@@ -12,6 +12,35 @@ function download(content, filename, type) {
   URL.revokeObjectURL(url);
 }
 
+function promptPassword(title, message) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:360px">
+        <h3>${title}</h3>
+        <p class="text-sm text-muted mb-16">${message}</p>
+        <div class="input-group">
+          <input type="password" class="input" id="promptPassInput" placeholder="Enter password">
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" id="promptPassCancel">Cancel</button>
+          <button class="btn btn-primary" id="promptPassOk">OK</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector('#promptPassInput');
+    input.focus();
+    const cleanup = (val) => { overlay.remove(); resolve(val); };
+    overlay.querySelector('#promptPassCancel').addEventListener('click', () => cleanup(null));
+    overlay.addEventListener('click', e => { if(e.target === overlay) cleanup(null); });
+    overlay.querySelector('#promptPassOk').addEventListener('click', () => cleanup(input.value));
+    input.addEventListener('keydown', e => { if(e.key === 'Enter') cleanup(input.value); });
+    input.addEventListener('keydown', e => { if(e.key === 'Escape') cleanup(null); });
+  });
+}
+
 // ===== EXPORT FUNCTIONS =====
 function exportTransactionsCSV() {
   const header = 'Date,Type,Category,Amount,Payment,Description,Tags,Recurring\n';
@@ -98,9 +127,11 @@ function exportMonthlyReport() {
 
 // ===== ENCRYPTED EXPORT/IMPORT =====
 async function exportEncrypted() {
-  const password = prompt('Set a password for this backup:');
+  window.__pauseAutoLock?.();
+  const password = await promptPassword('Export Encrypted Backup', 'Set a password to protect this backup:');
   if(!password || password.length < 4) {
     if(password !== null) toastError('Password must be at least 4 characters');
+    window.__resumeAutoLock?.();
     return;
   }
 
@@ -127,16 +158,18 @@ async function exportEncrypted() {
   } catch(e) {
     toastError('Encryption failed: ' + e.message);
   }
+  window.__resumeAutoLock?.();
 }
 
 async function importEncrypted() {
+  window.__pauseAutoLock?.();
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json';
   input.setAttribute('aria-label', 'Import encrypted backup file');
   input.onchange = e => {
     const file = e.target.files[0];
-    if(!file) return;
+    if(!file) { window.__resumeAutoLock?.(); return; }
     const reader = new FileReader();
     reader.onload = async ev => {
       try {
@@ -146,7 +179,7 @@ async function importEncrypted() {
           return;
         }
 
-        const password = prompt('Enter backup password:');
+        const password = await promptPassword('Import Encrypted Backup', 'Enter the backup password:');
         if(!password) return;
 
         const data = await decryptData(encrypted, password);
@@ -163,6 +196,7 @@ async function importEncrypted() {
       } catch(err) {
         toastError('Invalid file format');
       }
+      window.__resumeAutoLock?.();
     };
     reader.readAsText(file);
   };
@@ -171,13 +205,14 @@ async function importEncrypted() {
 
 // ===== IMPORT JSON =====
 function importJSON() {
+  window.__pauseAutoLock?.();
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json';
   input.setAttribute('aria-label', 'Import JSON backup file');
   input.onchange = e => {
     const file = e.target.files[0];
-    if(!file) return;
+    if(!file) { window.__resumeAutoLock?.(); return; }
     const reader = new FileReader();
     reader.onload = ev => {
       try {
@@ -188,6 +223,7 @@ function importJSON() {
         toastSuccess('Data imported successfully!');
         renderExport(document.getElementById('mainContent'));
       } catch(err) { toastError('Invalid file format'); }
+      window.__resumeAutoLock?.();
     };
     reader.readAsText(file);
   };
@@ -198,18 +234,19 @@ function importJSON() {
 let csvImportState = { headers: [], rows: [], mapping: {}, detected: null, preview: [] };
 
 function openCSVImport() {
+  window.__pauseAutoLock?.();
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.csv';
   input.setAttribute('aria-label', 'Import CSV file');
   input.onchange = e => {
     const file = e.target.files[0];
-    if(!file) return;
+    if(!file) { window.__resumeAutoLock?.(); return; }
     const reader = new FileReader();
     reader.onload = ev => {
       const text = ev.target.result;
       const rows = parseCSVSimple(text);
-      if(rows.length < 2) { toastError('CSV file is empty or has no data rows'); return; }
+      if(rows.length < 2) { toastError('CSV file is empty or has no data rows'); window.__resumeAutoLock?.(); return; }
 
       csvImportState.headers = rows[0];
       csvImportState.rows = rows.slice(1).filter(r => r.some(c => c.trim() !== ''));
@@ -218,6 +255,7 @@ function openCSVImport() {
       csvImportState.isSplitAmount = csvImportState.detected?.isSplitAmount || false;
 
       renderColumnMapping();
+      window.__resumeAutoLock?.();
     };
     reader.readAsText(file);
   };
@@ -360,49 +398,49 @@ export function renderExport(container) {
 
       <h3 class="text-sm text-muted mb-16" style="text-transform:uppercase;letter-spacing:2px;font-family:var(--font-mono)">Export</h3>
       <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));margin-bottom:32px">
-        <div class="panel" style="cursor:pointer" onclick="window.__exportTransactionsCSV()" role="button" tabindex="0" aria-label="Export transactions as CSV">
+        <div class="panel" style="cursor:pointer" data-action="exportTransactionsCSV" role="button" tabindex="0" aria-label="Export transactions as CSV">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">📄</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Transactions</h4>
             <p class="text-sm text-muted">${transactions.length} rows</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__exportBudgetsCSV()" role="button" tabindex="0" aria-label="Export budgets as CSV">
+        <div class="panel" style="cursor:pointer" data-action="exportBudgetsCSV" role="button" tabindex="0" aria-label="Export budgets as CSV">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">💰</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Budgets</h4>
             <p class="text-sm text-muted">${budgets.length} categories</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__exportSavingsCSV()" role="button" tabindex="0" aria-label="Export savings goals as CSV">
+        <div class="panel" style="cursor:pointer" data-action="exportSavingsCSV" role="button" tabindex="0" aria-label="Export savings goals as CSV">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">🎯</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Savings Goals</h4>
             <p class="text-sm text-muted">${savingsGoals.length} goals</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__exportRecurringCSV()" role="button" tabindex="0" aria-label="Export recurring expenses as CSV">
+        <div class="panel" style="cursor:pointer" data-action="exportRecurringCSV" role="button" tabindex="0" aria-label="Export recurring expenses as CSV">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">🔄</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Recurring</h4>
             <p class="text-sm text-muted">${recurringList.length} items</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__exportJSON()" role="button" tabindex="0" aria-label="Export full backup as JSON">
+        <div class="panel" style="cursor:pointer" data-action="exportJSON" role="button" tabindex="0" aria-label="Export full backup as JSON">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">📦</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Full Backup</h4>
             <p class="text-sm text-muted">JSON format</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__exportMonthlyReport()" role="button" tabindex="0" aria-label="Export monthly report">
+        <div class="panel" style="cursor:pointer" data-action="exportMonthlyReport" role="button" tabindex="0" aria-label="Export monthly report">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">📊</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Monthly Report</h4>
             <p class="text-sm text-muted">Current month</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer;border:1px solid var(--accent)" onclick="window.__exportEncrypted()" role="button" tabindex="0" aria-label="Export encrypted backup">
+        <div class="panel" style="cursor:pointer;border:1px solid var(--accent)" data-action="exportEncrypted" role="button" tabindex="0" aria-label="Export encrypted backup">
           <div style="text-align:center;padding:16px">
             <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">🔐</div>
             <h4 style="margin-bottom:4px;font-size:0.7rem">Encrypted Backup</h4>
@@ -413,21 +451,21 @@ export function renderExport(container) {
 
       <h3 class="text-sm text-muted mb-16" style="text-transform:uppercase;letter-spacing:2px;font-family:var(--font-mono)">Import</h3>
       <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-bottom:32px">
-        <div class="panel" style="cursor:pointer" onclick="window.__importCSV()" role="button" tabindex="0" aria-label="Import from CSV">
+        <div class="panel" style="cursor:pointer" data-action="importCSV" role="button" tabindex="0" aria-label="Import from CSV">
           <div style="text-align:center;padding:20px">
             <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📥</div>
             <h3 style="margin-bottom:8px">Import CSV</h3>
             <p class="text-sm text-muted">From bank statements, spreadsheets, or any CSV file. Auto-detects bank format.</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__importJSON()" role="button" tabindex="0" aria-label="Import from JSON backup">
+        <div class="panel" style="cursor:pointer" data-action="importJSON" role="button" tabindex="0" aria-label="Import from JSON backup">
           <div style="text-align:center;padding:20px">
             <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📂</div>
             <h3 style="margin-bottom:8px">Import JSON</h3>
             <p class="text-sm text-muted">Restore from a SpendWise JSON backup file.</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer;border:1px solid var(--accent)" onclick="window.__importEncrypted()" role="button" tabindex="0" aria-label="Import encrypted backup">
+        <div class="panel" style="cursor:pointer;border:1px solid var(--accent)" data-action="importEncrypted" role="button" tabindex="0" aria-label="Import encrypted backup">
           <div style="text-align:center;padding:20px">
             <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">🔓</div>
             <h3 style="margin-bottom:8px">Import Encrypted</h3>
@@ -462,16 +500,26 @@ export function renderExport(container) {
     <div class="modal-overlay" id="csvImportOverlay" role="dialog" aria-modal="true" aria-label="Import CSV"></div>
   `;
 
-  window.__exportTransactionsCSV = exportTransactionsCSV;
-  window.__exportBudgetsCSV = exportBudgetsCSV;
-  window.__exportSavingsCSV = exportSavingsCSV;
-  window.__exportRecurringCSV = exportRecurringCSV;
-  window.__exportJSON = exportJSON;
-  window.__exportMonthlyReport = exportMonthlyReport;
-  window.__exportEncrypted = exportEncrypted;
-  window.__importCSV = openCSVImport;
-  window.__importJSON = importJSON;
-  window.__importEncrypted = importEncrypted;
+  // Bind all actions via data-action + querySelectorAll (avoids CSP inline handler issues)
+  const actions = {
+    exportTransactionsCSV, exportBudgetsCSV, exportSavingsCSV, exportRecurringCSV,
+    exportJSON, exportMonthlyReport, exportEncrypted,
+    importCSV: openCSVImport, importJSON, importEncrypted
+  };
+
+  container.querySelectorAll('[data-action]').forEach(el => {
+    el.addEventListener('click', () => {
+      const fn = actions[el.dataset.action];
+      if(fn) fn();
+    });
+    el.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        const fn = actions[el.dataset.action];
+        if(fn) fn();
+      }
+    });
+  });
 
   document.getElementById('csvImportOverlay')?.addEventListener('click', e => {
     if(e.target.id === 'csvImportOverlay') e.target.classList.remove('show');

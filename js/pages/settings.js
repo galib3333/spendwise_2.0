@@ -1,8 +1,8 @@
 // ===== SETTINGS PAGE =====
 import { getSettings, updateSettings, clearAllData } from '../store.js';
 import { toastSuccess } from '../toast.js';
-import { hasPIN, isLockEnabled, getLockTimeout, setLockTimeout } from '../security.js';
-import { changePIN, disableLock } from '../lockscreen.js';
+import { hasPIN, isLockEnabled, getLockTimeout, setLockTimeout, getPrivacyPolicy } from '../security.js';
+import { changePIN, disableLock, showLockScreen } from '../lockscreen.js';
 
 function applyTheme() {
   const settings = getSettings();
@@ -124,7 +124,7 @@ export function renderSettings(container) {
   });
 
   // Lock screen toggle
-  document.getElementById('lockToggle')?.addEventListener('click', async () => {
+  document.getElementById('lockToggle')?.addEventListener('click', () => {
     if(isLockEnabled()) {
       disableLock();
       document.getElementById('autoLockGroup').style.display = 'none';
@@ -132,10 +132,7 @@ export function renderSettings(container) {
       document.getElementById('lockToggle').classList.remove('active');
       toastSuccess('Lock screen disabled');
     } else {
-      // Show lock screen setup
-      const { showLockScreen } = await import('../lockscreen.js');
       showLockScreen(() => {
-        // After PIN setup, refresh settings
         renderSettings(container);
         toastSuccess('Lock screen enabled');
       });
@@ -170,8 +167,7 @@ export function renderSettings(container) {
   });
 
   // Privacy Policy
-  document.getElementById('privacyPolicyBtn')?.addEventListener('click', async () => {
-    const { getPrivacyPolicy } = await import('../security.js');
+  document.getElementById('privacyPolicyBtn')?.addEventListener('click', () => {
     const policy = getPrivacyPolicy();
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay show';

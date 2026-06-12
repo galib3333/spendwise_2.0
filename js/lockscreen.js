@@ -3,14 +3,15 @@ import {
   hasPIN, setupPIN, verifyPIN, removePIN,
   isLockEnabled, setLocked,
   isLockedOut, getRemainingLockoutMs,
-  startLockTimer, stopLockTimer, resetLockTimer, getLockTimeout, setLockTimeout
+  startLockTimer, stopLockTimer, resetLockTimer, getLockTimeout, setLockTimeout,
+  getPrivacyPolicy
 } from './security.js';
 
 let _onUnlock = null;
 let _pin = '';
 let _step = 'enter'; // enter | setup | confirm | change
 let _setupPin = '';
-let _keyBound = false;
+let _keyAbort = null;
 
 const lockSVG = `<svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="0" ry="0"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`;
 const unlockSVG = `<svg class="lock-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="0" ry="0"/><path d="M7 11V7a5 5 0 019.9-1"/></svg>`;
@@ -106,12 +107,10 @@ function renderChangeScreen() {
 }
 
 function bindPinKeys() {
-  // Remove old keydown listener to prevent stacking
-  if(_keyBound) document.removeEventListener('keydown', handleKeyDown);
+  if(_keyAbort) _keyAbort.abort();
+  _keyAbort = new AbortController();
+  const signal = _keyAbort.signal;
 
-  document.querySelectorAll('.pin-key').forEach(btn => {
-    btn.replaceWith(btn.cloneNode(true));
-  });
   document.querySelectorAll('.pin-key').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -123,20 +122,15 @@ function bindPinKeys() {
       }
       updateDots();
       if(_pin.length >= 4) handlePinComplete();
-    });
+    }, { signal });
   });
 
-  document.addEventListener('keydown', handleKeyDown);
-  _keyBound = true;
+  document.addEventListener('keydown', handleKeyDown, { signal });
 }
 
 function handleKeyDown(e) {
   const screen = getScreen();
-  if(!screen?.classList.contains('show')) {
-    document.removeEventListener('keydown', handleKeyDown);
-    _keyBound = false;
-    return;
-  }
+  if(!screen?.classList.contains('show')) return;
   if(e.key >= '0' && e.key <= '9' && _pin.length < 8) {
     _pin += e.key;
     updateDots();
@@ -221,21 +215,19 @@ async function handlePinComplete() {
 }
 
 function showPrivacyModal() {
-  import('./security.js').then(mod => {
-    const policy = mod.getPrivacyPolicy();
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay show';
-    overlay.innerHTML = `<div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
-      <h3>Privacy Policy</h3>
-      <div style="color:var(--text2);font-size:0.8rem;line-height:1.6;white-space:pre-wrap">${policy}</div>
-      <div class="modal-actions">
-        <button type="button" class="btn btn-primary" id="privacyCloseBtn">Close</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
-    overlay.querySelector('#privacyCloseBtn')?.addEventListener('click', () => overlay.remove());
-  });
+  const policy = getPrivacyPolicy();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay show';
+  overlay.innerHTML = `<div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
+    <h3>Privacy Policy</h3>
+    <div style="color:var(--text2);font-size:0.8rem;line-height:1.6;white-space:pre-wrap">${policy}</div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="privacyCloseBtn">Close</button>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#privacyCloseBtn')?.addEventListener('click', () => overlay.remove());
 }
 
 export function showLockScreen(onUnlock) {
@@ -260,10 +252,7 @@ export function showLockScreen(onUnlock) {
 function hide() {
   const screen = getScreen();
   if(screen) screen.classList.remove('show');
-  if(_keyBound) {
-    document.removeEventListener('keydown', handleKeyDown);
-    _keyBound = false;
-  }
+  if(_keyAbort) { _keyAbort.abort(); _keyAbort = null; }
 }
 
 export function lockApp() {

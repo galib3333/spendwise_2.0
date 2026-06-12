@@ -1,4 +1,4 @@
-const CACHE_NAME = 'spendwise-v1';
+const CACHE_NAME = 'spendwise-v2';
 const ASSETS = [
   '/',
   '/index.html',
@@ -11,6 +11,8 @@ const ASSETS = [
   '/js/toast.js',
   '/js/router.js',
   '/js/modals.js',
+  '/js/security.js',
+  '/js/lockscreen.js',
   '/js/pages/dashboard.js',
   '/js/pages/transactions.js',
   '/js/pages/reports.js',
@@ -38,6 +40,11 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  // Only handle same-origin http/https requests
+  if(url.origin !== self.location.origin) return;
+  if(url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
   // Network first, fallback to cache
   event.respondWith(
     fetch(event.request)
