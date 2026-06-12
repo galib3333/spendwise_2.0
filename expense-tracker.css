@@ -718,6 +718,8 @@ select {
 
 .savings-card .card-label { color: var(--bg3); }
 .savings-card .card-value { color: var(--bg); }
+.savings-card:hover .card-label { color: var(--yellow); }
+.savings-card:hover .card-value { color: var(--yellow); }
 
 /* Recurring badge */
 .recurring-badge {

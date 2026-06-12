@@ -93,7 +93,7 @@
       "date": "2026-06-10",
       "category": "food",
       "payment": "cash",
-      "description": "Snacks and dinner",
+      "description": "Snacks and diner",
       "tags": [],
       "recurring": false,
       "frequency": "monthly"
@@ -137,9 +137,9 @@
     {
       "id": "mq9gqt34wsl03k",
       "type": "expense",
-      "amount": 12,
+      "amount": 24,
       "date": "2026-06-11",
-      "category": "food",
+      "category": "transport",
       "payment": "cash",
       "description": "",
       "tags": [],
@@ -171,6 +171,54 @@
       "tags": [],
       "recurring": false,
       "frequency": "monthly"
+    },
+    {
+      "id": "mq9wnbnz4gvear",
+      "type": "expense",
+      "amount": 890,
+      "date": "2026-06-11",
+      "category": "other-exp",
+      "payment": "cash",
+      "description": "Loan from Reza",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "id": "mqa91occlem3l9",
+      "type": "expense",
+      "amount": 390,
+      "date": "2026-06-12",
+      "category": "personal",
+      "payment": "cash",
+      "description": "Body Spray",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "type": "expense",
+      "amount": 44,
+      "date": "2026-06-12",
+      "category": "food",
+      "payment": "cash",
+      "description": "",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly",
+      "id": "mqav91by89dakr"
+    },
+    {
+      "type": "expense",
+      "amount": 24,
+      "date": "2026-06-12",
+      "category": "transport",
+      "payment": "cash",
+      "description": "Office",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly",
+      "id": "mqaw195vj23may"
     }
   ],
   "budgets": [],
@@ -186,12 +234,12 @@
     {
       "id": "mq6x18qgyt0ra1",
       "name": "Marriage",
-      "target": 300000,
+      "target": 200000,
       "current": 0,
       "date": "2027-06-09",
       "createdAt": "2026-06-09"
     }
   ],
   "recurringList": [],
-  "exportDate": "2026-06-11"
+  "exportDate": "2026-06-12"
 }
