@@ -45,20 +45,13 @@ export function formatDate(dateStr, format) {
   }
 }
 
-export function getWeekStart(d) { const dt=new Date(d); const day=dt.getDay(); dt.setDate(dt.getDate()-day); return dt; }
+function getWeekStart(d) { const dt=new Date(d); const day=dt.getDay(); dt.setDate(dt.getDate()-day); return dt; }
 export function getCat(id) { return ALL_CATS.find(c=>c.id===id) || {name:'Unknown',icon:'❓',color:'#9aa0b0'}; }
 
 export function getWeekDates(date) {
   const start = getWeekStart(new Date(date));
   const dates = [];
   for(let i=0;i<7;i++) { const d=new Date(start); d.setDate(d.getDate()+i); dates.push(d.toISOString().slice(0,10)); }
-  return dates;
-}
-
-export function getMonthDates(year, month) {
-  const dates = [];
-  const days = new Date(year, month+1, 0).getDate();
-  for(let i=1;i<=days;i++) dates.push(`${year}-${String(month+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`);
   return dates;
 }
 

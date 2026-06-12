@@ -6,7 +6,8 @@ import { setChartUtils } from './charts.js';
 import { fmt, fmtShort, EXPENSE_CATS, validateTransaction, uid, today } from './utils.js';
 import { applyTheme } from './pages/settings.js';
 import { toastSuccess } from './toast.js';
-import { initLockScreen, lockApp, resetLockTimer, stopLockTimer, isLocked, isLockEnabled } from './lockscreen.js';
+import { initLockScreen, lockApp, resetLockTimer } from './lockscreen.js';
+import { isLocked, isLockEnabled } from './security.js';
 
 // Page imports
 import { renderDashboard } from './pages/dashboard.js';
@@ -156,7 +157,9 @@ function init() {
   });
 
   // === AUTO-LOCK & LIFECYCLE ===
+  let _unlocked = false;
   function startAutoLock() {
+    _unlocked = true;
     const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll'];
     const resetTimer = () => {
       if(!isLockEnabled() || isLocked()) return;
@@ -166,27 +169,26 @@ function init() {
     resetLockTimer(lockApp);
   }
 
-  // Lock on tab hide / app background
+  // Lock on tab hide (only after first unlock)
   document.addEventListener('visibilitychange', () => {
+    if(!_unlocked) return;
     if(document.hidden && isLockEnabled() && !isLocked()) {
       lockApp();
     }
   });
 
-  // Lock on window blur (mobile: user switches app)
+  // Lock on window blur (mobile: user switches app) — only after unlock, with delay to avoid false triggers
+  let _blurTimeout = null;
   window.addEventListener('blur', () => {
-    if(isLockEnabled() && !isLocked()) {
-      lockApp();
-    }
+    if(!_unlocked) return;
+    if(!isLockEnabled() || isLocked()) return;
+    _blurTimeout = setTimeout(() => {
+      if(isLockEnabled() && !isLocked()) lockApp();
+    }, 2000);
   });
-
-  // Prevent back button bypass on mobile
-  window.addEventListener('popstate', () => {
-    if(isLockEnabled() && isLocked()) {
-      history.pushState(null, '', location.href);
-    }
+  window.addEventListener('focus', () => {
+    if(_blurTimeout) { clearTimeout(_blurTimeout); _blurTimeout = null; }
   });
-  if(isLockEnabled()) history.pushState(null, '', location.href);
 }
 
 // Run when DOM is ready

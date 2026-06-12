@@ -1,8 +1,8 @@
 // ===== SETTINGS PAGE =====
 import { getSettings, updateSettings, clearAllData } from '../store.js';
 import { toastSuccess } from '../toast.js';
-import { hasPIN, setupPIN, removePIN, isLockEnabled, setLockEnabled, getLockTimeout, setLockTimeout } from '../security.js';
-import { changePIN, disableLock, lockApp } from '../lockscreen.js';
+import { hasPIN, isLockEnabled, getLockTimeout, setLockTimeout } from '../security.js';
+import { changePIN, disableLock } from '../lockscreen.js';
 
 function applyTheme() {
   const settings = getSettings();

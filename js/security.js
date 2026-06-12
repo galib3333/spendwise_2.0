@@ -4,7 +4,6 @@
 const SALT_KEY = 'sw_salt';
 const HASH_KEY = 'sw_pin_hash';
 const LOCK_KEY = 'sw_lock';
-const SECURE_KEY = 'sw_secure';
 const ATTEMPTS_KEY = 'sw_lock_attempts';
 
 // ===== PIN MANAGEMENT =====
@@ -82,14 +81,14 @@ function saveAttempts(data) {
   localStorage.setItem(ATTEMPTS_KEY, JSON.stringify(data));
 }
 
-export function incrementAttempts() {
+function incrementAttempts() {
   const a = getAttempts();
   a.count++;
   if(a.count >= MAX_ATTEMPTS) a.lockedUntil = Date.now() + LOCKOUT_MS;
   saveAttempts(a);
 }
 
-export function resetAttempts() {
+function resetAttempts() {
   saveAttempts({ count: 0, lockedUntil: 0 });
 }
 
@@ -188,32 +187,6 @@ export function stopLockTimer() {
 export function resetLockTimer(onLock) {
   stopLockTimer();
   startLockTimer(onLock);
-}
-
-// ===== BIOMETRIC =====
-export async function isBiometricAvailable() {
-  if(!window.PublicKeyCredential) return false;
-  try {
-    return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-  } catch { return false; }
-}
-
-// ===== SECURE STORAGE (encrypted localStorage wrapper) =====
-const STORAGE_PREFIX = 'sw_';
-
-export async function secureSave(key, data, password) {
-  const encrypted = await encryptData(data, password);
-  localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(encrypted));
-}
-
-export async function secureLoad(key, password) {
-  try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + key);
-    if(!raw) return null;
-    const encrypted = JSON.parse(raw);
-    if(!encrypted.salt || !encrypted.iv || !encrypted.data) return null;
-    return await decryptData(encrypted, password);
-  } catch { return null; }
 }
 
 // ===== PRIVACY POLICY =====
