@@ -1,17 +1,19 @@
 // ===== TRANSACTIONS PAGE =====
 import { getTransactions, addTransaction, updateTransaction, deleteTransaction, restoreTransaction, getSettings } from '../store.js';
-import { today, fmt, getCat, ALL_CATS, EXPENSE_CATS, INCOME_CATS, PAYMENT_LABELS, validateTransaction, uid } from '../utils.js';
+import { today, fmt, formatDate, getCat, ALL_CATS, EXPENSE_CATS, INCOME_CATS, PAYMENT_LABELS, validateTransaction, uid } from '../utils.js';
 import { toastSuccess, toastInfo } from '../toast.js';
 import { openModal, closeModal } from '../modals.js';
 
-let currentFilter = { search: '', type: 'all', category: 'all', payment: 'all' };
+let currentFilter = { search: '', type: 'all', category: 'all', payment: 'all', dateFrom: '', dateTo: '', sort: 'date-desc' };
 
 function getFiltered() {
-  let filtered = [...getTransactions()].sort((a, b) => b.date.localeCompare(a.date));
+  let filtered = [...getTransactions()];
   const f = currentFilter;
   if(f.type !== 'all') filtered = filtered.filter(t => t.type === f.type);
   if(f.category !== 'all') filtered = filtered.filter(t => t.category === f.category);
   if(f.payment !== 'all') filtered = filtered.filter(t => t.payment === f.payment);
+  if(f.dateFrom) filtered = filtered.filter(t => t.date >= f.dateFrom);
+  if(f.dateTo) filtered = filtered.filter(t => t.date <= f.dateTo);
   if(f.search) {
     const s = f.search.toLowerCase();
     filtered = filtered.filter(t =>
@@ -19,6 +21,14 @@ function getFiltered() {
       (t.tags || []).some(tag => tag.toLowerCase().includes(s)) ||
       getCat(t.category).name.toLowerCase().includes(s)
     );
+  }
+
+  switch(f.sort) {
+    case 'date-asc': filtered.sort((a, b) => a.date.localeCompare(b.date)); break;
+    case 'amount-desc': filtered.sort((a, b) => b.amount - a.amount); break;
+    case 'amount-asc': filtered.sort((a, b) => a.amount - b.amount); break;
+    case 'category': filtered.sort((a, b) => a.category.localeCompare(b.category)); break;
+    default: filtered.sort((a, b) => b.date.localeCompare(a.date));
   }
   return filtered;
 }
@@ -28,6 +38,8 @@ function renderTable() {
   const tbody = document.getElementById('txBody');
   const empty = document.getElementById('txEmpty');
   const settings = getSettings();
+  const countEl = document.getElementById('txCount');
+  if(countEl) countEl.textContent = `${filtered.length} transaction${filtered.length !== 1 ? 's' : ''}`;
 
   if(!filtered.length) {
     if(tbody) tbody.innerHTML = '';
@@ -43,7 +55,7 @@ function renderTable() {
     const payLabel = PAYMENT_LABELS[t.payment] || t.payment;
     return `
       <tr>
-        <td class="text-sm">${t.date}</td>
+        <td class="text-sm">${formatDate(t.date, settings.dateFormat)}</td>
         <td>
           <div class="flex flex-center gap-8">
             <div class="transaction-icon" style="background:${cat.color}22;color:${cat.color};font-size:0.9rem" aria-hidden="true">${cat.icon}</div>
@@ -161,6 +173,11 @@ function deleteTransactionHandler(id) {
   renderTable();
 }
 
+function toggleFilters() {
+  const panel = document.getElementById('advancedFilters');
+  if(panel) panel.classList.toggle('hidden');
+}
+
 export function renderTransactions(container) {
   const allCats = ALL_CATS;
   const payments = PAYMENT_LABELS;
@@ -179,21 +196,53 @@ export function renderTransactions(container) {
             <option value="expense">Expenses</option>
             <option value="income">Income</option>
           </select>
-          <select class="input" id="filterCat" aria-label="Filter by category" style="width:150px">
-            <option value="all">All Categories</option>
-            ${allCats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('')}
+          <select class="input" id="filterSort" aria-label="Sort by" style="width:150px">
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="amount-desc">Highest Amount</option>
+            <option value="amount-asc">Lowest Amount</option>
+            <option value="category">Category</option>
           </select>
-          <select class="input" id="filterPayment" aria-label="Filter by payment method" style="width:150px">
-            <option value="all">All Payments</option>
-            ${Object.entries(payments).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
-          </select>
+          <button class="btn btn-ghost btn-sm" id="toggleFiltersBtn" aria-label="Toggle advanced filters">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            Filters
+          </button>
           <button class="btn btn-primary" onclick="window.__openAddTransaction()" aria-label="Add transaction">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add
           </button>
         </div>
       </div>
+      <div id="advancedFilters" class="hidden" style="margin-bottom:16px;padding:16px;background:var(--bg2);border:1px solid var(--border)">
+        <div class="flex gap-8" style="flex-wrap:wrap;align-items:flex-end">
+          <div class="input-group" style="margin:0;flex:1;min-width:min(140px,100%)">
+            <label for="filterDateFrom">From Date</label>
+            <input type="date" class="input" id="filterDateFrom" aria-label="Filter from date">
+          </div>
+          <div class="input-group" style="margin:0;flex:1;min-width:min(140px,100%)">
+            <label for="filterDateTo">To Date</label>
+            <input type="date" class="input" id="filterDateTo" aria-label="Filter to date">
+          </div>
+          <div class="input-group" style="margin:0;flex:1;min-width:min(150px,100%)">
+            <label for="filterCat">Category</label>
+            <select class="input" id="filterCat" aria-label="Filter by category">
+              <option value="all">All Categories</option>
+              ${allCats.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="input-group" style="margin:0;flex:1;min-width:min(150px,100%)">
+            <label for="filterPayment">Payment</label>
+            <select class="input" id="filterPayment" aria-label="Filter by payment method">
+              <option value="all">All Payments</option>
+              ${Object.entries(payments).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+      </div>
       <div class="panel">
+        <div class="flex flex-center flex-between mb-16">
+          <span class="text-sm text-muted" id="txCount"></span>
+        </div>
         <div class="tx-table-wrapper">
           <table class="tx-table table" id="txTable" aria-label="Transactions list">
             <thead>
@@ -217,13 +266,15 @@ export function renderTransactions(container) {
     </div>
   `;
 
-  // Event listeners
   document.getElementById('searchInput')?.addEventListener('input', e => { currentFilter.search = e.target.value; renderTable(); });
   document.getElementById('filterType')?.addEventListener('change', e => { currentFilter.type = e.target.value; renderTable(); });
+  document.getElementById('filterSort')?.addEventListener('change', e => { currentFilter.sort = e.target.value; renderTable(); });
   document.getElementById('filterCat')?.addEventListener('change', e => { currentFilter.category = e.target.value; renderTable(); });
   document.getElementById('filterPayment')?.addEventListener('change', e => { currentFilter.payment = e.target.value; renderTable(); });
+  document.getElementById('filterDateFrom')?.addEventListener('change', e => { currentFilter.dateFrom = e.target.value; renderTable(); });
+  document.getElementById('filterDateTo')?.addEventListener('change', e => { currentFilter.dateTo = e.target.value; renderTable(); });
+  document.getElementById('toggleFiltersBtn')?.addEventListener('click', toggleFilters);
 
-  // Expose handlers for inline onclick
   window.__openAddTransaction = openAddTransaction;
   window.__editTransaction = openEditTransaction;
   window.__deleteTransaction = deleteTransactionHandler;

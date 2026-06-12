@@ -1,6 +1,6 @@
 // ===== EXPORT PAGE =====
-import { getTransactions, getBudgets, getSavingsGoals, getRecurringList, replaceAllData } from '../store.js';
-import { today, getCat, escapeCSV, sanitizeImportData } from '../utils.js';
+import { getTransactions, getBudgets, getSavingsGoals, getRecurringList, addBulkTransactions, replaceAllData } from '../store.js';
+import { today, fmt, getCat, escapeCSV, parseCSVSimple, detectBankFormat, mapCSVRow, sanitizeImportData, uid } from '../utils.js';
 import { toastSuccess, toastError } from '../toast.js';
 
 function download(content, filename, type) {
@@ -11,13 +11,48 @@ function download(content, filename, type) {
   URL.revokeObjectURL(url);
 }
 
-function exportCSV() {
+// ===== EXPORT FUNCTIONS =====
+function exportTransactionsCSV() {
   const header = 'Date,Type,Category,Amount,Payment,Description,Tags,Recurring\n';
   const rows = getTransactions().map(t =>
     [t.date, t.type, escapeCSV(getCat(t.category).name), t.amount, t.payment, escapeCSV(t.description || ''), escapeCSV((t.tags || []).join(';')), t.recurring || false].join(',')
   ).join('\n');
   download(header + rows, 'spendwise-transactions.csv', 'text/csv');
-  toastSuccess('CSV exported');
+  toastSuccess('Transactions CSV exported');
+}
+
+function exportBudgetsCSV() {
+  const header = 'Category,Monthly Limit,Spent This Month\n';
+  const now = new Date();
+  const ms = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
+  const me = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const txns = getTransactions();
+
+  const rows = getBudgets().map(b => {
+    const spent = txns.filter(t => t.type === 'expense' && t.category === b.category && t.date >= ms && t.date <= me).reduce((s, t) => s + t.amount, 0);
+    return [escapeCSV(getCat(b.category).name), b.limit, spent.toFixed(2)].join(',');
+  }).join('\n');
+  download(header + rows, 'spendwise-budgets.csv', 'text/csv');
+  toastSuccess('Budgets CSV exported');
+}
+
+function exportSavingsCSV() {
+  const header = 'Goal Name,Target,Current Saved,Progress %,Target Date,Created\n';
+  const rows = getSavingsGoals().map(g => {
+    const pct = g.target ? (g.current / g.target * 100).toFixed(1) : '0';
+    return [escapeCSV(g.name), g.target, g.current, pct + '%', g.date || '', g.createdAt || ''].join(',');
+  }).join('\n');
+  download(header + rows, 'spendwise-savings.csv', 'text/csv');
+  toastSuccess('Savings goals CSV exported');
+}
+
+function exportRecurringCSV() {
+  const header = 'Description,Amount,Frequency,Category,Start Date,Next Date,Active\n';
+  const rows = getRecurringList().map(r =>
+    [escapeCSV(r.description), r.amount, r.frequency, escapeCSV(getCat(r.category).name), r.startDate, r.nextDate, r.active].join(',')
+  ).join('\n');
+  download(header + rows, 'spendwise-recurring.csv', 'text/csv');
+  toastSuccess('Recurring expenses CSV exported');
 }
 
 function exportJSON() {
@@ -60,7 +95,8 @@ function exportMonthlyReport() {
   toastSuccess('Monthly report exported');
 }
 
-function importData() {
+// ===== IMPORT JSON =====
+function importJSON() {
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json';
@@ -84,6 +120,160 @@ function importData() {
   input.click();
 }
 
+// ===== IMPORT CSV =====
+let csvImportState = { headers: [], rows: [], mapping: {}, detected: null, preview: [] };
+
+function openCSVImport() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.setAttribute('aria-label', 'Import CSV file');
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target.result;
+      const rows = parseCSVSimple(text);
+      if(rows.length < 2) { toastError('CSV file is empty or has no data rows'); return; }
+
+      csvImportState.headers = rows[0];
+      csvImportState.rows = rows.slice(1).filter(r => r.some(c => c.trim() !== ''));
+      csvImportState.detected = detectBankFormat(rows[0]);
+      csvImportState.mapping = csvImportState.detected ? csvImportState.detected.mapping : {};
+      csvImportState.isSplitAmount = csvImportState.detected?.isSplitAmount || false;
+
+      renderColumnMapping();
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function renderColumnMapping() {
+  const overlay = document.getElementById('csvImportOverlay');
+  if(!overlay) return;
+  const { headers, mapping, detected, isSplitAmount } = csvImportState;
+
+  const html = `
+    <div class="fade-in">
+      <div class="header">
+        <div>
+          <h2>Import CSV</h2>
+          <p class="text-sm text-muted">${csvImportState.rows.length} rows detected${detected ? ' — Auto-detected: ' + detected.name : ''}</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" id="csvImportCancel">Cancel</button>
+      </div>
+      <div class="panel mb-20">
+        <div class="panel-header"><h3>Map Columns</h3><span class="text-sm text-muted">Match CSV columns to transaction fields</span></div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(200px,100%),1fr));gap:16px">
+          ${headers.map((h, i) => `
+            <div>
+              <div class="text-sm text-muted mb-8" style="font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${h}">Col ${i + 1}: ${h}</div>
+              <select class="input csv-col-map" data-col="${i}">
+                <option value="">-- Skip --</option>
+                <option value="date" ${mapping.date === i ? 'selected' : ''}>Date</option>
+                <option value="description" ${mapping.description === i ? 'selected' : ''}>Description</option>
+                ${isSplitAmount ? `
+                  <option value="debit" ${mapping.debit === i ? 'selected' : ''}>Debit</option>
+                  <option value="credit" ${mapping.credit === i ? 'selected' : ''}>Credit</option>
+                ` : `
+                  <option value="amount" ${mapping.amount === i ? 'selected' : ''}>Amount</option>
+                `}
+                <option value="category" ${mapping.category === i ? 'selected' : ''}>Category</option>
+              </select>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+      <div class="panel mb-20">
+        <div class="panel-header"><h3>Preview</h3><span class="text-sm text-muted" id="csvPreviewCount"></span></div>
+        <div style="overflow-x:auto">
+          <table class="table" id="csvPreviewTable">
+            <thead><tr>
+              <th>Date</th><th>Type</th><th>Category</th><th>Amount</th><th>Description</th><th>Status</th>
+            </tr></thead>
+            <tbody id="csvPreviewBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="flex flex-between" style="padding:16px 0">
+        <button class="btn btn-ghost" id="csvImportBack">Back</button>
+        <button class="btn btn-primary" id="csvImportConfirm">Import ${csvImportState.rows.length} Transactions</button>
+      </div>
+    </div>
+  `;
+
+  overlay.innerHTML = `<div class="modal" style="max-width:900px;max-height:90vh;overflow-y:auto">${html}</div>`;
+  overlay.classList.add('show');
+
+  document.querySelectorAll('.csv-col-map').forEach(sel => {
+    sel.addEventListener('change', e => {
+      const col = parseInt(e.target.dataset.col);
+      const field = e.target.value;
+      Object.keys(csvImportState.mapping).forEach(k => { if(csvImportState.mapping[k] === col) delete csvImportState.mapping[k]; });
+      if(field) csvImportState.mapping[field] = col;
+      updatePreview();
+    });
+  });
+
+  document.getElementById('csvImportCancel')?.addEventListener('click', () => {
+    overlay.classList.remove('show');
+  });
+
+  document.getElementById('csvImportBack')?.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    openCSVImport();
+  });
+
+  document.getElementById('csvImportConfirm')?.addEventListener('click', () => {
+    const { rows, mapping, isSplitAmount } = csvImportState;
+    if(!mapping.date && mapping.date !== 0) { toastError('Please map the Date column'); return; }
+    if(!isSplitAmount && mapping.amount === undefined && mapping.debit === undefined) { toastError('Please map the Amount or Debit/Credit columns'); return; }
+
+    const mapped = rows.map(r => mapCSVRow(r, { ...mapping, isSplitAmount })).filter(t => t.amount > 0);
+    if(!mapped.length) { toastError('No valid transactions found'); return; }
+
+    mapped.forEach(t => { t.id = uid(); });
+    addBulkTransactions(mapped);
+    toastSuccess(`Imported ${mapped.length} transactions`);
+    overlay.classList.remove('show');
+    renderExport(document.getElementById('mainContent'));
+  });
+
+  updatePreview();
+}
+
+function updatePreview() {
+  const { rows, mapping, isSplitAmount } = csvImportState;
+  const tbody = document.getElementById('csvPreviewBody');
+  const countEl = document.getElementById('csvPreviewCount');
+  if(!tbody) return;
+
+  const previewRows = rows.slice(0, 20);
+  let validCount = 0;
+
+  tbody.innerHTML = previewRows.map(r => {
+    const t = mapCSVRow(r, { ...mapping, isSplitAmount });
+    const valid = t.amount > 0 && t.date;
+    if(valid) validCount++;
+    const cat = getCat(t.category);
+    return `
+      <tr style="opacity:${valid ? 1 : 0.4}">
+        <td class="text-sm">${t.date}</td>
+        <td><span class="badge badge-${t.type === 'income' ? 'success' : 'danger'}" style="font-size:0.5rem">${t.type}</span></td>
+        <td class="text-sm">${cat.icon} ${cat.name}</td>
+        <td class="text-sm" style="font-weight:600;color:${t.type === 'income' ? 'var(--green)' : 'var(--red)'}">${t.amount > 0 ? fmt(t.amount, '৳') : '—'}</td>
+        <td class="text-sm" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description || '—'}</td>
+        <td class="text-sm">${valid ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--red)">✗</span>'}</td>
+      </tr>
+    `;
+  }).join('');
+
+  if(countEl) countEl.textContent = `${validCount} valid of ${previewRows.length} shown (${rows.length} total)`;
+}
+
+// ===== RENDER PAGE =====
 export function renderExport(container) {
   const transactions = getTransactions();
   const budgets = getBudgets();
@@ -92,40 +282,75 @@ export function renderExport(container) {
 
   container.innerHTML = `
     <div class="fade-in">
-      <div class="header"><h2>Export Data</h2></div>
-      <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
-        <div class="panel" style="cursor:pointer" onclick="window.__exportCSV()" role="button" tabindex="0" aria-label="Export as CSV">
-          <div style="text-align:center;padding:20px">
-            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📄</div>
-            <h3 style="margin-bottom:8px">Export as CSV</h3>
-            <p class="text-sm text-muted">Spreadsheet-compatible format. Open in Excel or Google Sheets.</p>
+      <div class="header"><h2>Export & Import</h2></div>
+
+      <h3 class="text-sm text-muted mb-16" style="text-transform:uppercase;letter-spacing:2px;font-family:var(--font-mono)">Export</h3>
+      <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr));margin-bottom:32px">
+        <div class="panel" style="cursor:pointer" onclick="window.__exportTransactionsCSV()" role="button" tabindex="0" aria-label="Export transactions as CSV">
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">📄</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Transactions</h4>
+            <p class="text-sm text-muted">${transactions.length} rows</p>
           </div>
         </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__exportJSON()" role="button" tabindex="0" aria-label="Export as JSON">
-          <div style="text-align:center;padding:20px">
-            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📦</div>
-            <h3 style="margin-bottom:8px">Export as JSON</h3>
-            <p class="text-sm text-muted">Complete data backup. Can be re-imported later.</p>
+        <div class="panel" style="cursor:pointer" onclick="window.__exportBudgetsCSV()" role="button" tabindex="0" aria-label="Export budgets as CSV">
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">💰</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Budgets</h4>
+            <p class="text-sm text-muted">${budgets.length} categories</p>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="window.__exportSavingsCSV()" role="button" tabindex="0" aria-label="Export savings goals as CSV">
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">🎯</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Savings Goals</h4>
+            <p class="text-sm text-muted">${savingsGoals.length} goals</p>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="window.__exportRecurringCSV()" role="button" tabindex="0" aria-label="Export recurring expenses as CSV">
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">🔄</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Recurring</h4>
+            <p class="text-sm text-muted">${recurringList.length} items</p>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="window.__exportJSON()" role="button" tabindex="0" aria-label="Export full backup as JSON">
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">📦</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Full Backup</h4>
+            <p class="text-sm text-muted">JSON format</p>
           </div>
         </div>
         <div class="panel" style="cursor:pointer" onclick="window.__exportMonthlyReport()" role="button" tabindex="0" aria-label="Export monthly report">
-          <div style="text-align:center;padding:20px">
-            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📊</div>
-            <h3 style="margin-bottom:8px">Monthly Report (CSV)</h3>
-            <p class="text-sm text-muted">Current month's summary with category breakdown.</p>
-          </div>
-        </div>
-        <div class="panel" style="cursor:pointer" onclick="window.__importData()" role="button" tabindex="0" aria-label="Import data from JSON">
-          <div style="text-align:center;padding:20px">
-            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📥</div>
-            <h3 style="margin-bottom:8px">Import Data</h3>
-            <p class="text-sm text-muted">Restore from a JSON backup file.</p>
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">📊</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Monthly Report</h4>
+            <p class="text-sm text-muted">Current month</p>
           </div>
         </div>
       </div>
-      <div class="panel mt-16">
+
+      <h3 class="text-sm text-muted mb-16" style="text-transform:uppercase;letter-spacing:2px;font-family:var(--font-mono)">Import</h3>
+      <div class="cards-grid" style="grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));margin-bottom:32px">
+        <div class="panel" style="cursor:pointer" onclick="window.__importCSV()" role="button" tabindex="0" aria-label="Import from CSV">
+          <div style="text-align:center;padding:20px">
+            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📥</div>
+            <h3 style="margin-bottom:8px">Import CSV</h3>
+            <p class="text-sm text-muted">From bank statements, spreadsheets, or any CSV file. Auto-detects bank format.</p>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer" onclick="window.__importJSON()" role="button" tabindex="0" aria-label="Import from JSON backup">
+          <div style="text-align:center;padding:20px">
+            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📂</div>
+            <h3 style="margin-bottom:8px">Import JSON</h3>
+            <p class="text-sm text-muted">Restore from a SpendWise JSON backup file.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
         <div class="panel-header"><h3>Data Summary</h3></div>
-        <div class="data-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px">
+        <div class="data-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(150px,100%),1fr));gap:16px">
           <div style="padding:12px;background:var(--bg3);text-align:center">
             <div class="card-label" style="justify-content:center">Transactions</div>
             <div style="font-size:1.5rem;font-weight:700">${transactions.length}</div>
@@ -145,10 +370,29 @@ export function renderExport(container) {
         </div>
       </div>
     </div>
+
+    <div class="modal-overlay" id="csvImportOverlay" role="dialog" aria-modal="true" aria-label="Import CSV"></div>
   `;
 
-  window.__exportCSV = exportCSV;
+  window.__exportTransactionsCSV = exportTransactionsCSV;
+  window.__exportBudgetsCSV = exportBudgetsCSV;
+  window.__exportSavingsCSV = exportSavingsCSV;
+  window.__exportRecurringCSV = exportRecurringCSV;
   window.__exportJSON = exportJSON;
   window.__exportMonthlyReport = exportMonthlyReport;
-  window.__importData = importData;
+  window.__importCSV = openCSVImport;
+  window.__importJSON = importJSON;
+
+  document.getElementById('csvImportOverlay')?.addEventListener('click', e => {
+    if(e.target.id === 'csvImportOverlay') e.target.classList.remove('show');
+  });
+
+  if(window.__csvEscHandler) document.removeEventListener('keydown', window.__csvEscHandler);
+  window.__csvEscHandler = function(e) {
+    if(e.key === 'Escape') {
+      const ov = document.getElementById('csvImportOverlay');
+      if(ov && ov.classList.contains('show')) { ov.classList.remove('show'); }
+    }
+  };
+  document.addEventListener('keydown', window.__csvEscHandler);
 }

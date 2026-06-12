@@ -1,8 +1,9 @@
 // ===== SAVINGS GOALS PAGE =====
-import { getSavingsGoals, addGoal, updateGoal, deleteGoal, getSettings } from '../store.js';
+import { getSavingsGoals, addGoal, updateGoal, deleteGoal, getTransactions, getSettings } from '../store.js';
 import { fmt, validateGoal, uid, today } from '../utils.js';
 import { toastSuccess, toastInfo } from '../toast.js';
 import { openModal, closeModal } from '../modals.js';
+import { drawLineChart } from '../charts.js';
 
 function openAddGoal() {
   document.getElementById('goalEditId').value = '';
@@ -58,11 +59,35 @@ function deleteGoalHandler(id) {
   renderSavings(document.getElementById('mainContent'));
 }
 
+function getSavingsTrend() {
+  const now = new Date();
+  const months = [];
+  const labels = [];
+  const cumulativeData = [];
+  let cumulative = 0;
+
+  for(let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const ms = d.toISOString().slice(0, 7) + '-01';
+    const me = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+    const monthExp = getTransactions().filter(t => t.type === 'expense' && t.date >= ms && t.date <= me).reduce((s, t) => s + t.amount, 0);
+    const monthInc = getTransactions().filter(t => t.type === 'income' && t.date >= ms && t.date <= me).reduce((s, t) => s + t.amount, 0);
+    cumulative += (monthInc - monthExp);
+
+    months.push(cumulative);
+    labels.push(d.toLocaleDateString('en-US', { month: 'short' }));
+  }
+
+  return { data: months, labels };
+}
+
 export function renderSavings(container) {
   const settings = getSettings();
   const savingsGoals = getSavingsGoals();
   const totalSaved = savingsGoals.reduce((s, g) => s + g.current, 0);
   const totalTarget = savingsGoals.reduce((s, g) => s + g.target, 0);
+  const trend = getSavingsTrend();
 
   container.innerHTML = `
     <div class="fade-in">
@@ -81,7 +106,11 @@ export function renderSavings(container) {
         <div class="card"><div class="card-label">🎯 Total Target</div><div class="card-value accent">${fmt(totalTarget, settings.currency)}</div></div>
         <div class="card"><div class="card-label">📊 Overall Progress</div><div class="card-value ${totalTarget ? (totalSaved / totalTarget * 100 >= 100 ? 'green' : 'yellow') : 'accent'}">${totalTarget ? (totalSaved / totalTarget * 100).toFixed(1) : 0}%</div></div>
       </div>
-      <div class="savings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+      <div class="panel mb-20">
+        <div class="panel-header"><h3>Savings Trend</h3><span class="text-sm text-muted">Last 6 months</span></div>
+        <canvas id="savingsTrend" aria-label="Savings trend line chart"></canvas>
+      </div>
+      <div class="savings-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(300px,100%),1fr));gap:16px">
         ${savingsGoals.length ? savingsGoals.map(g => {
           const pct = g.target ? Math.min((g.current / g.target) * 100, 100) : 0;
           const remaining = Math.max(g.target - g.current, 0);
@@ -138,4 +167,8 @@ export function renderSavings(container) {
   window.__openEditGoal = openEditGoal;
   window.__deleteGoal = deleteGoalHandler;
   window.__saveGoal = saveGoal;
+
+  setTimeout(() => {
+    drawLineChart('savingsTrend', trend.data, trend.labels, '#8faa7b');
+  }, 50);
 }

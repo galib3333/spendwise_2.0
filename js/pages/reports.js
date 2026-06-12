@@ -1,6 +1,6 @@
 // ===== REPORTS PAGE (Weekly, Monthly, Yearly) =====
 import { getTransactions, getSettings } from '../store.js';
-import { today, fmt, getCat, getWeekDates, PAYMENT_LABELS } from '../utils.js';
+import { fmt, formatDate, getCat, getWeekDates, PAYMENT_LABELS } from '../utils.js';
 import { drawPieChart, drawBarChart, drawLineChart } from '../charts.js';
 
 function getExpenses(start, end) {
@@ -30,10 +30,13 @@ function sumByPayment(items) {
 }
 
 // ===== WEEKLY =====
+let weeklyOffset = 0;
+
 export function renderWeekly(container) {
   const settings = getSettings();
-  const t = new Date();
-  const weekDates = getWeekDates(t);
+  const now = new Date();
+  now.setDate(now.getDate() + weeklyOffset * 7);
+  const weekDates = getWeekDates(now);
   const weekStart = weekDates[0];
   const weekEnd = weekDates[6];
   const exp = getExpenses(weekStart, weekEnd);
@@ -45,12 +48,26 @@ export function renderWeekly(container) {
   const dailyData = weekDates.map(d => exp.filter(t => t.date === d).reduce((s, t) => s + t.amount, 0));
   const dailyLabels = weekDates.map(d => { const dt = new Date(d + 'T00:00:00'); return dayNames[dt.getDay()]; });
 
+  const periodLabel = weeklyOffset === 0 ? 'This Week' : weeklyOffset === -1 ? 'Last Week' : `${Math.abs(weeklyOffset)} week${Math.abs(weeklyOffset) > 1 ? 's' : ''} ${weeklyOffset < 0 ? 'ago' : 'ahead'}`;
+
   container.innerHTML = `
     <div class="fade-in">
       <div class="header">
         <div>
           <h2>Weekly Report</h2>
-          <p class="text-sm text-muted">${new Date(weekStart + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${new Date(weekEnd + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+          <p class="text-sm text-muted">${formatDate(weekStart, settings.dateFormat)} — ${formatDate(weekEnd, settings.dateFormat)}</p>
+        </div>
+        <div class="header-actions">
+          <div class="period-nav">
+            <button class="btn btn-ghost btn-sm btn-icon" id="weekPrev" aria-label="Previous week">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="period-label">${periodLabel}</span>
+            <button class="btn btn-ghost btn-sm btn-icon" id="weekNext" aria-label="Next week" ${weeklyOffset >= 0 ? 'disabled' : ''}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            ${weeklyOffset !== 0 ? '<button class="btn btn-ghost btn-sm" id="weekToday">Today</button>' : ''}
+          </div>
         </div>
       </div>
       <div class="cards-grid">
@@ -94,7 +111,7 @@ export function renderWeekly(container) {
                 <div class="transaction-icon" style="background:${cat.color}22;color:${cat.color}" aria-hidden="true">${cat.icon}</div>
                 <div>
                   <div class="text-sm" style="font-weight:500">${t.description || cat.name}</div>
-                  <div class="text-sm text-muted">${t.date}</div>
+                  <div class="text-sm text-muted">${formatDate(t.date, settings.dateFormat)}</div>
                 </div>
               </div>
               <span style="font-weight:600;color:var(--red)">- ${fmt(t.amount, settings.currency)}</span>
@@ -105,6 +122,10 @@ export function renderWeekly(container) {
     </div>
   `;
 
+  document.getElementById('weekPrev')?.addEventListener('click', () => { weeklyOffset--; renderWeekly(container); });
+  document.getElementById('weekNext')?.addEventListener('click', () => { if(weeklyOffset < 0) { weeklyOffset++; renderWeekly(container); } });
+  document.getElementById('weekToday')?.addEventListener('click', () => { weeklyOffset = 0; renderWeekly(container); });
+
   setTimeout(() => {
     drawBarChart('weeklyBar', dailyData, dailyLabels, '#e17055', settings.currency);
     drawPieChart('weeklyPie', catData, totalExp, settings.currency);
@@ -112,11 +133,16 @@ export function renderWeekly(container) {
 }
 
 // ===== MONTHLY =====
+let monthlyOffset = 0;
+
 export function renderMonthly(container) {
   const settings = getSettings();
   const now = new Date();
-  const monthStart = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-01';
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  now.setMonth(now.getMonth() + monthlyOffset);
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const monthStart = year + '-' + String(month + 1).padStart(2, '0') + '-01';
+  const monthEnd = new Date(year, month + 1, 0).toISOString().slice(0, 10);
   const exp = getExpenses(monthStart, monthEnd);
   const inc = getIncome(monthStart, monthEnd);
   const totalExp = exp.reduce((s, t) => s + t.amount, 0);
@@ -124,11 +150,11 @@ export function renderMonthly(container) {
   const catData = sumByCategory(exp);
   const payData = sumByPayment(exp);
   const dailyExp = sumByDay(exp);
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
   const dailyData = [];
   const dailyLabels = [];
   for(let i = 1; i <= daysInMonth; i++) {
-    const d = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(i).padStart(2, '0');
+    const d = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(i).padStart(2, '0');
     dailyData.push(exp.filter(t => t.date === d).reduce((s, t) => s + t.amount, 0));
     dailyLabels.push(i.toString());
   }
@@ -136,10 +162,27 @@ export function renderMonthly(container) {
   const avgPerDay = totalExp / daysInMonth;
   const topDay = dailyExp.length ? dailyExp.reduce((a, b) => b[1] > a[1] ? b : a, ['', [0]]) : ['', [0]];
 
+  const monthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const isCurrentMonth = monthlyOffset === 0;
+
   container.innerHTML = `
     <div class="fade-in">
       <div class="header">
-        <h2>Monthly Report — ${now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</h2>
+        <div>
+          <h2>Monthly Report — ${monthName}</h2>
+        </div>
+        <div class="header-actions">
+          <div class="period-nav">
+            <button class="btn btn-ghost btn-sm btn-icon" id="monthPrev" aria-label="Previous month">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="period-label">${isCurrentMonth ? 'This Month' : monthName}</span>
+            <button class="btn btn-ghost btn-sm btn-icon" id="monthNext" aria-label="Next month" ${isCurrentMonth ? 'disabled' : ''}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            ${!isCurrentMonth ? '<button class="btn btn-ghost btn-sm" id="monthToday">Today</button>' : ''}
+          </div>
+        </div>
       </div>
       <div class="cards-grid">
         <div class="card"><div class="card-label">💸 Total Expenses</div><div class="card-value red">${fmt(totalExp, settings.currency)}</div></div>
@@ -195,7 +238,7 @@ export function renderMonthly(container) {
             <span style="font-size:1.5rem" aria-hidden="true">🏆</span>
             <div>
               <div class="text-sm" style="font-weight:600">Highest Spending Day</div>
-              <div class="text-sm text-muted">${topDay[0] ? new Date(topDay[0] + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : 'N/A'} — ${fmt(topDay[1], settings.currency)}</div>
+              <div class="text-sm text-muted">${topDay[0] ? formatDate(topDay[0], settings.dateFormat) + ' — ' + fmt(topDay[1], settings.currency) : 'N/A'}</div>
             </div>
           </div>
           <div class="flex flex-center gap-8 mb-16" style="padding:12px;background:var(--bg3)">
@@ -217,6 +260,10 @@ export function renderMonthly(container) {
     </div>
   `;
 
+  document.getElementById('monthPrev')?.addEventListener('click', () => { monthlyOffset--; renderMonthly(container); });
+  document.getElementById('monthNext')?.addEventListener('click', () => { if(monthlyOffset < 0) { monthlyOffset++; renderMonthly(container); } });
+  document.getElementById('monthToday')?.addEventListener('click', () => { monthlyOffset = 0; renderMonthly(container); });
+
   setTimeout(() => {
     drawLineChart('monthlyLine', dailyData, dailyLabels, '#e17055');
     drawPieChart('monthlyPie', catData, totalExp, settings.currency);
@@ -224,10 +271,12 @@ export function renderMonthly(container) {
 }
 
 // ===== YEARLY =====
+let yearlyOffset = 0;
+
 export function renderYearly(container) {
   const settings = getSettings();
   const now = new Date();
-  const year = now.getFullYear();
+  const year = now.getFullYear() + yearlyOffset;
   const yearStart = year + '-01-01';
   const yearEnd = year + '-12-31';
   const exp = getExpenses(yearStart, yearEnd);
@@ -248,9 +297,25 @@ export function renderYearly(container) {
     monthLabels.push(monthNames[i]);
   }
 
+  const isCurrentYear = yearlyOffset === 0;
+
   container.innerHTML = `
     <div class="fade-in">
-      <div class="header"><h2>Yearly Report — ${year}</h2></div>
+      <div class="header">
+        <div><h2>Yearly Report — ${year}</h2></div>
+        <div class="header-actions">
+          <div class="period-nav">
+            <button class="btn btn-ghost btn-sm btn-icon" id="yearPrev" aria-label="Previous year">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="period-label">${year}</span>
+            <button class="btn btn-ghost btn-sm btn-icon" id="yearNext" aria-label="Next year" ${isCurrentYear ? 'disabled' : ''}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            ${!isCurrentYear ? '<button class="btn btn-ghost btn-sm" id="yearToday">Today</button>' : ''}
+          </div>
+        </div>
+      </div>
       <div class="cards-grid">
         <div class="card"><div class="card-label">💸 Total Expenses</div><div class="card-value red">${fmt(totalExp, settings.currency)}</div></div>
         <div class="card"><div class="card-label">💰 Total Income</div><div class="card-value green">${fmt(totalInc, settings.currency)}</div></div>
@@ -321,6 +386,10 @@ export function renderYearly(container) {
       </div>
     </div>
   `;
+
+  document.getElementById('yearPrev')?.addEventListener('click', () => { yearlyOffset--; renderYearly(container); });
+  document.getElementById('yearNext')?.addEventListener('click', () => { if(yearlyOffset < 0) { yearlyOffset++; renderYearly(container); } });
+  document.getElementById('yearToday')?.addEventListener('click', () => { yearlyOffset = 0; renderYearly(container); });
 
   setTimeout(() => {
     drawBarChart('yearlyBar', expByMonth, monthLabels, '#6c5ce7', settings.currency);

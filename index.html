@@ -73,6 +73,9 @@
     </div>
   </aside>
   <main class="main" id="mainContent" role="main" aria-label="Main content"></main>
+  <button class="fab" id="fabQuickAdd" aria-label="Quick add expense" title="Quick add expense">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
 </div>
 
 <!-- Modals -->
@@ -236,6 +239,46 @@
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="window.__closeModal && window.__closeModal('recurringModal')">Cancel</button>
       <button class="btn btn-primary" onclick="window.__saveRecurring && window.__saveRecurring()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="quick-add-overlay" id="quickAddOverlay" role="dialog" aria-modal="true" aria-label="Quick add expense">
+  <div class="quick-add-panel">
+    <div class="flex flex-center flex-between mb-16">
+      <h3 style="margin:0;border:none;padding:0">Quick Add Expense</h3>
+      <button class="btn btn-ghost btn-sm btn-icon" id="quickAddClose" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="form-row">
+      <div class="input-group">
+        <label for="quickAmount">Amount</label>
+        <input type="number" class="input" id="quickAmount" placeholder="0.00" step="0.01" min="0" required aria-required="true">
+      </div>
+      <div class="input-group">
+        <label for="quickCategory">Category</label>
+        <select class="input" id="quickCategory" required aria-required="true"></select>
+      </div>
+    </div>
+    <div class="input-group">
+      <label for="quickDesc">Description (optional)</label>
+      <input type="text" class="input" id="quickDesc" placeholder="What was this for?">
+    </div>
+    <div class="input-group">
+      <label for="quickPayment">Payment</label>
+      <select class="input" id="quickPayment">
+        <option value="cash">Cash</option>
+        <option value="card">Debit Card</option>
+        <option value="credit">Credit Card</option>
+        <option value="upi">UPI</option>
+        <option value="bank">Bank Transfer</option>
+        <option value="wallet">Digital Wallet</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="quickAddCancel">Cancel</button>
+      <button class="btn btn-primary" id="quickAddSave">Add Expense</button>
     </div>
   </div>
 </div>

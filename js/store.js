@@ -1,5 +1,4 @@
 // ===== CENTRALIZED STATE MANAGEMENT =====
-import { today } from './utils.js';
 
 const STORAGE_PREFIX = 'sw_';
 const listeners = new Map();

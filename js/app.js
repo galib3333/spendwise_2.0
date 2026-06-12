@@ -1,10 +1,11 @@
 // ===== MAIN APPLICATION ENTRY POINT =====
-import { initStore, getSettings, subscribe } from './store.js';
+import { initStore, getSettings, updateSettings, addTransaction, getRecurringList, addBulkTransactions, updateRecurring } from './store.js';
 import { initRouter, navigate, registerPage } from './router.js';
 import { initModals } from './modals.js';
 import { setChartUtils } from './charts.js';
-import { fmt, fmtShort } from './utils.js';
+import { fmt, fmtShort, EXPENSE_CATS, validateTransaction, uid, today } from './utils.js';
 import { applyTheme } from './pages/settings.js';
+import { toastSuccess } from './toast.js';
 
 // Page imports
 import { renderDashboard } from './pages/dashboard.js';
@@ -16,21 +17,15 @@ import { renderSavings } from './pages/savings.js';
 import { renderExport } from './pages/export-page.js';
 import { renderSettings } from './pages/settings.js';
 
-// ===== RECURRING AUTO-GENERATE (FIXED: max 1 per run) =====
-import { getRecurringList, addBulkTransactions, updateRecurring } from './store.js';
-import { today, uid } from './utils.js';
-
 function processRecurring() {
   const now = today();
-  let changed = false;
+  const newTransactions = [];
   const recurringList = getRecurringList();
 
   recurringList.forEach(r => {
     if(!r.active) return;
-    // FIX: Only generate one transaction per recurring item per app load
     if(r.nextDate <= now) {
-      const transactions = [];
-      transactions.push({
+      newTransactions.push({
         id: uid(),
         type: 'expense',
         amount: r.amount,
@@ -43,7 +38,6 @@ function processRecurring() {
         frequency: r.frequency
       });
 
-      // Calculate next date
       const d = new Date(r.nextDate + 'T00:00:00');
       switch(r.frequency) {
         case 'weekly': d.setDate(d.getDate() + 7); break;
@@ -52,13 +46,11 @@ function processRecurring() {
         case 'quarterly': d.setMonth(d.getMonth() + 3); break;
         case 'yearly': d.setFullYear(d.getFullYear() + 1); break;
       }
-      const nextDate = d.toISOString().slice(0, 10);
-      updateRecurring(r.id, { nextDate });
-      changed = true;
+      updateRecurring(r.id, { nextDate: d.toISOString().slice(0, 10) });
     }
   });
 
-  if(changed) addBulkTransactions([]);
+  if(newTransactions.length) addBulkTransactions(newTransactions);
 }
 
 // ===== INITIALIZE =====
@@ -106,12 +98,57 @@ function init() {
       // Direct DOM update since settings page might not be loaded
       document.documentElement.setAttribute('data-theme', newTheme);
       themeToggle.classList.toggle('active', newTheme === 'dark');
-      import('./store.js').then(m => m.updateSettings('theme', newTheme));
+      updateSettings('theme', newTheme);
     });
   }
 
   // Render initial page
   navigate('dashboard');
+
+  // Quick-add FAB
+  const fab = document.getElementById('fabQuickAdd');
+  const quickOverlay = document.getElementById('quickAddOverlay');
+  const quickCat = document.getElementById('quickCategory');
+  if(quickCat) {
+    quickCat.innerHTML = EXPENSE_CATS.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  }
+
+  function openQuickAdd() {
+    document.getElementById('quickAmount').value = '';
+    document.getElementById('quickDesc').value = '';
+    document.getElementById('quickPayment').value = 'cash';
+    if(quickCat) quickCat.value = 'food';
+    quickOverlay?.classList.add('show');
+    document.getElementById('quickAmount')?.focus();
+  }
+
+  function closeQuickAdd() {
+    quickOverlay?.classList.remove('show');
+  }
+
+  fab?.addEventListener('click', openQuickAdd);
+  document.getElementById('quickAddClose')?.addEventListener('click', closeQuickAdd);
+  document.getElementById('quickAddCancel')?.addEventListener('click', closeQuickAdd);
+  quickOverlay?.addEventListener('click', e => { if(e.target === quickOverlay) closeQuickAdd(); });
+
+  document.getElementById('quickAddSave')?.addEventListener('click', () => {
+    const amount = parseFloat(document.getElementById('quickAmount').value);
+    const category = document.getElementById('quickCategory').value;
+    const description = document.getElementById('quickDesc').value.trim();
+    const payment = document.getElementById('quickPayment').value;
+    const date = today();
+
+    const errors = validateTransaction({ amount, date, category, type: 'expense', payment });
+    if(errors.length) { alert(errors[0]); return; }
+
+    addTransaction({ id: uid(), type: 'expense', amount, date, category, payment, description, tags: [], recurring: false, frequency: null });
+    toastSuccess('Expense added');
+    closeQuickAdd();
+  });
+
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape') closeQuickAdd();
+  });
 }
 
 // Run when DOM is ready

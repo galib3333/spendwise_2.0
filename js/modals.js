@@ -37,6 +37,5 @@ export function initModals() {
   });
 
   // Expose globally for inline onclick handlers in HTML
-  window.__openModal = openModal;
   window.__closeModal = closeModal;
 }

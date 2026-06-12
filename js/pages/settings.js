@@ -36,6 +36,15 @@ export function renderSettings(container) {
           </select>
         </div>
         <div class="input-group">
+          <label for="settingDateFormat">Date Format</label>
+          <select class="input" id="settingDateFormat">
+            <option value="YYYY-MM-DD" ${settings.dateFormat === 'YYYY-MM-DD' ? 'selected' : ''}>YYYY-MM-DD (2026-06-12)</option>
+            <option value="MM/DD/YYYY" ${settings.dateFormat === 'MM/DD/YYYY' ? 'selected' : ''}>MM/DD/YYYY (06/12/2026)</option>
+            <option value="DD/MM/YYYY" ${settings.dateFormat === 'DD/MM/YYYY' ? 'selected' : ''}>DD/MM/YYYY (12/06/2026)</option>
+            <option value="DD.MM.YYYY" ${settings.dateFormat === 'DD.MM.YYYY' ? 'selected' : ''}>DD.MM.YYYY (12.06.2026)</option>
+          </select>
+        </div>
+        <div class="input-group">
           <label>Theme</label>
           <div class="flex flex-center gap-8">
             <span class="text-sm">Light</span>
@@ -55,6 +64,11 @@ export function renderSettings(container) {
   document.getElementById('settingCurrency')?.addEventListener('change', e => {
     updateSettings('currency', e.target.value);
     toastSuccess('Currency updated');
+  });
+
+  document.getElementById('settingDateFormat')?.addEventListener('change', e => {
+    updateSettings('dateFormat', e.target.value);
+    toastSuccess('Date format updated');
   });
 
   document.getElementById('themeToggleSettings')?.addEventListener('click', () => {

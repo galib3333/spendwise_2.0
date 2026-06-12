@@ -29,6 +29,22 @@ export function uid() { return Date.now().toString(36) + Math.random().toString(
 export function fmt(n, currency) { return currency + Number(n||0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}); }
 export function fmtShort(n, currency) { return currency + Number(n||0).toLocaleString('en-IN', {maximumFractionDigits:0}); }
 export function today() { return new Date().toISOString().slice(0,10); }
+
+export function formatDate(dateStr, format) {
+  if(!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  switch(format) {
+    case 'MM/DD/YYYY': return `${m}/${dd}/${y}`;
+    case 'DD/MM/YYYY': return `${dd}/${m}/${y}`;
+    case 'DD.MM.YYYY': return `${dd}.${m}.${y}`;
+    case 'YYYY-MM-DD':
+    default: return `${y}-${m}-${dd}`;
+  }
+}
+
 export function getWeekStart(d) { const dt=new Date(d); const day=dt.getDay(); dt.setDate(dt.getDate()-day); return dt; }
 export function getCat(id) { return ALL_CATS.find(c=>c.id===id) || {name:'Unknown',icon:'❓',color:'#9aa0b0'}; }
 
@@ -53,6 +69,167 @@ export function escapeCSV(val) {
     return '"' + s.replace(/"/g, '""') + '"';
   }
   return s;
+}
+
+// ===== CSV PARSING =====
+export function parseCSVSimple(text) {
+  const rows = [];
+  let row = [];
+  let current = '';
+  let inQuotes = false;
+
+  function pushField() { row.push(current); current = ''; }
+  function pushRow() { if(row.length > 0 && row.some(c => c !== '')) rows.push(row); row = []; }
+
+  for(let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if(inQuotes) {
+      if(ch === '"') {
+        if(text[i + 1] === '"') { current += '"'; i++; }
+        else { inQuotes = false; }
+      } else { current += ch; }
+    } else {
+      if(ch === '"') { inQuotes = true; }
+      else if(ch === ',') { pushField(); }
+      else if(ch === '\n' || ch === '\r') {
+        if(ch === '\r' && text[i + 1] === '\n') i++;
+        pushField();
+        pushRow();
+      } else { current += ch; }
+    }
+  }
+  pushField();
+  pushRow();
+  return rows;
+}
+
+// Bank statement format detection
+const BANK_PATTERNS = [
+  { name: 'Generic (Date, Description, Amount)', date: 0, desc: 1, amount: 2, type: null },
+  { name: 'Generic (Date, Description, Debit, Credit)', date: 0, desc: 1, debit: 2, credit: 3, type: 'split' },
+  { name: 'HDFC Bank', date: 0, desc: 2, amount: 3, type: null, dateFormats: ['DD/MM/YYYY', 'DD-MM-YYYY'] },
+  { name: 'SBI Bank', date: 0, desc: 3, amount: 5, type: 'split', debit: 4, credit: 5, dateFormats: ['DD/MM/YYYY'] },
+  { name: 'ICICI Bank', date: 0, desc: 2, amount: 4, type: null, dateFormats: ['DD/MM/YY'] },
+  { name: 'Axis Bank', date: 0, desc: 2, debit: 3, credit: 4, type: 'split', dateFormats: ['DD-MM-YYYY'] },
+];
+
+const HEADER_KEYWORDS = {
+  date: ['date', 'txn date', 'transaction date', 'posted date', 'value date', 'trans date'],
+  description: ['description', 'narration', 'particulars', 'details', 'memo', 'payee', 'merchant', 'transaction'],
+  amount: ['amount', 'txn amount', 'transaction amount'],
+  debit: ['debit', 'debit amount', 'withdrawal', 'dr'],
+  credit: ['credit', 'credit amount', 'deposit', 'cr'],
+  category: ['category', 'type', 'txn type'],
+  balance: ['balance', 'closing balance', 'available balance']
+};
+
+export function detectBankFormat(headers) {
+  const lower = headers.map(h => h.toLowerCase().trim());
+  const mapping = {};
+
+  for(const [field, keywords] of Object.entries(HEADER_KEYWORDS)) {
+    for(let i = 0; i < lower.length; i++) {
+      if(keywords.some(kw => lower[i].includes(kw))) {
+        mapping[field] = i;
+        break;
+      }
+    }
+  }
+
+  const hasDebitCredit = mapping.debit !== undefined || mapping.credit !== undefined;
+  const hasAmount = mapping.amount !== undefined;
+
+  if(mapping.date === undefined) return null;
+
+  return {
+    mapping,
+    isSplitAmount: hasDebitCredit && !hasAmount,
+    dateFormats: detectDateFormats(lower)
+  };
+}
+
+function detectDateFormats(headers) {
+  return ['YYYY-MM-DD', 'DD/MM/YYYY', 'DD-MM-YYYY', 'MM/DD/YYYY', 'DD/MM/YY', 'DD.MM.YYYY'];
+}
+
+export function mapCSVRow(row, mapping) {
+  const get = (field) => {
+    const idx = mapping[field];
+    return idx !== undefined ? (row[idx] || '').trim() : '';
+  };
+
+  let amount = parseFloat(get('amount')) || 0;
+  let type = 'expense';
+
+  if(mapping.isSplitAmount) {
+    const debit = parseFloat(get('debit')) || 0;
+    const credit = parseFloat(get('credit')) || 0;
+    if(credit > 0 && debit === 0) { amount = credit; type = 'income'; }
+    else { amount = debit || credit; type = 'expense'; }
+  } else {
+    const raw = get('amount');
+    const num = parseFloat(raw) || 0;
+    if(num < 0) { amount = Math.abs(num); type = 'expense'; }
+    else { amount = num; type = 'income'; }
+  }
+
+  let date = get('date');
+  date = normalizeDate(date);
+
+  const category = guessCategory(get('description') || get('category'));
+
+  return {
+    date,
+    type,
+    amount,
+    category,
+    description: get('description').slice(0, 200),
+    payment: 'auto',
+    tags: ['imported'],
+    recurring: false,
+    frequency: null
+  };
+}
+
+function normalizeDate(dateStr) {
+  if(!dateStr) return today();
+  const s = dateStr.trim();
+
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+
+  const parts = s.split(/[\/.\-]/);
+  if(parts.length !== 3) return today();
+
+  let [a, b, c] = parts.map(Number);
+
+  if(c > 99 && c < 1000) return today();
+
+  if(c < 100) c += 2000;
+
+  if(a > 12) return `${c}-${String(b).padStart(2,'0')}-${String(a).padStart(2,'0')}`;
+  if(b > 12) return `${c}-${String(a).padStart(2,'0')}-${String(b).padStart(2,'0')}`;
+  return `${c}-${String(a).padStart(2,'0')}-${String(b).padStart(2,'0')}`;
+}
+
+function guessCategory(desc) {
+  if(!desc) return 'other-exp';
+  const d = desc.toLowerCase();
+  if(/food|restaurant|cafe|starbucks|mcdonald|swiggy|zomato|pizza|burger|coffee|tea/.test(d)) return 'food';
+  if(/uber|ola|rapido|metro|bus|train|flight|petrol|fuel|parking|taxi/.test(d)) return 'transport';
+  if(/electric|electricity|water|gas|internet|wifi|phone|recharge| broadband/.test(d)) return 'bills';
+  if(/netflix|hotstar|prime|movie|cinema|game|spotify|youtube|entertainment/.test(d)) return 'entertainment';
+  if(/hospital|doctor|pharmacy|medicine|medical|health|clinic/.test(d)) return 'health';
+  if(/shop|store|amazon|flipkart|mall|clothing|shoe/.test(d)) return 'shopping';
+  if(/school|college|course|book|udemy|coursera|tuition|education/.test(d)) return 'education';
+  if(/rent|house|apartment|flat/.test(d)) return 'rent';
+  if(/grocery|supermarket|bigbasket|blinkit|zepto|jiomart/.test(d)) return 'groceries';
+  if(/subscription|membership|premium|plan/.test(d)) return 'subscriptions';
+  if(/salary|payroll|wage/.test(d)) return 'salary';
+  if(/freelanc|client|project|consulting/.test(d)) return 'freelance';
+  if(/invest|dividend|stock|mutual|fund|interest/.test(d)) return 'investment';
+  if(/business|revenue|sales|profit/.test(d)) return 'business';
+  if(/gift|bonus|reward|cashback/.test(d)) return 'gift';
+  return 'other-exp';
 }
 
 // ===== VALIDATION =====

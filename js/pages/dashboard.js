@@ -1,8 +1,7 @@
 // ===== DASHBOARD PAGE =====
 import { getTransactions, getBudgets, getSavingsGoals, getRecurringList, getSettings } from '../store.js';
-import { today, fmt, getCat, EXPENSE_CATS, INCOME_CATS, ALL_CATS } from '../utils.js';
+import { today, fmt, getCat } from '../utils.js';
 import { drawPieChart, drawBarChart, drawHealthRing } from '../charts.js';
-import { subscribe } from '../store.js';
 
 function getExpenses(start, end) {
   return getTransactions().filter(t => t.type === 'expense' && t.date >= start && t.date <= end);
@@ -18,17 +17,18 @@ function sumByCategory(items) {
   return Object.entries(map).map(([cat, val]) => ({ category: cat, amount: val })).sort((a, b) => b.amount - a.amount);
 }
 
-function calcHealthScore() {
+let dashMonthOffset = 0;
+
+function calcHealthScore(monthStart, monthEnd) {
   const t = today();
   const now = new Date();
-  const monthStart = t.slice(0, 7) + '-01';
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const thisMonthExp = getExpenses(monthStart, monthEnd);
+
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1 + dashMonthOffset, 1);
   const lmStart = lastMonth.toISOString().slice(0, 7) + '-01';
   const lmEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0).toISOString().slice(0, 10);
-
-  const thisMonthExp = getExpenses(monthStart, monthEnd);
   const lastMonthExp = getExpenses(lmStart, lmEnd);
+
   const thisMonthInc = getIncome(monthStart, monthEnd);
   const totalExp = thisMonthExp.reduce((s, x) => s + x.amount, 0);
   const totalInc = thisMonthInc.reduce((s, x) => s + x.amount, 0);
@@ -68,12 +68,9 @@ function getScoreGrade(score) {
   return { grade: 'F', color: 'var(--red)', msg: 'Critical. Time to take control of your finances.' };
 }
 
-function getInsights() {
-  const t = today();
+function getInsights(monthStart, monthEnd) {
   const now = new Date();
-  const monthStart = t.slice(0, 7) + '-01';
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1 + dashMonthOffset, 1);
   const lmStart = lastMonth.toISOString().slice(0, 7) + '-01';
   const lmEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0).toISOString().slice(0, 10);
 
@@ -125,8 +122,8 @@ function getInsights() {
     });
   }
 
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1 + dashMonthOffset, 0).getDate();
+  const dayOfMonth = dashMonthOffset === 0 ? now.getDate() : daysInMonth;
   const daysLeft = daysInMonth - dayOfMonth;
   if(totalExpLast > 0 && daysLeft > 0) {
     const dailyAvg = totalExp / dayOfMonth;
@@ -142,11 +139,9 @@ function getInsights() {
   return insights;
 }
 
-function getPrompts() {
+function getPrompts(monthStart, monthEnd) {
   const t = today();
   const now = new Date();
-  const monthStart = t.slice(0, 7) + '-01';
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
   const settings = getSettings();
   const prompts = [];
 
@@ -185,8 +180,8 @@ function getPrompts() {
     }
   });
 
-  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1 + dashMonthOffset, 0).getDate();
+  const dayOfMonth = dashMonthOffset === 0 ? now.getDate() : daysInMonth;
   if(dayOfMonth > 5 && thisMonthExp.length === 0) {
     prompts.push({ icon: '💸', bg: 'var(--accent)', title: 'No Activity', text: `No expenses logged this month yet — ${daysInMonth - dayOfMonth} days left` });
   }
@@ -194,12 +189,32 @@ function getPrompts() {
   return prompts;
 }
 
+function getBudgetAlerts(monthStart, monthEnd) {
+  const settings = getSettings();
+  const thisMonthExp = getExpenses(monthStart, monthEnd);
+  const budgets = getBudgets();
+  if(!budgets.length) return [];
+
+  return budgets.map(b => {
+    const spent = thisMonthExp.filter(e => e.category === b.category).reduce((s, x) => s + x.amount, 0);
+    const pct = b.limit > 0 ? (spent / b.limit * 100) : 0;
+    const info = getCat(b.category);
+    let status, statusColor;
+    if(pct >= 100) { status = 'Over'; statusColor = 'var(--red)'; }
+    else if(pct >= 85) { status = 'Warning'; statusColor = 'var(--yellow)'; }
+    else { status = 'On Track'; statusColor = 'var(--green)'; }
+    return { category: b.category, name: info.name, icon: info.icon, color: info.color, spent, limit: b.limit, pct: Math.min(pct, 100), status, statusColor };
+  }).sort((a, b) => b.pct - a.pct);
+}
+
 export function renderDashboard(container) {
   const settings = getSettings();
-  const t = today();
   const now = new Date();
-  const monthStart = t.slice(0, 7) + '-01';
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const displayDate = new Date(now.getFullYear(), now.getMonth() + dashMonthOffset, 1);
+  const monthStart = displayDate.toISOString().slice(0, 7) + '-01';
+  const monthEnd = new Date(displayDate.getFullYear(), displayDate.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const isCurrentMonth = dashMonthOffset === 0;
+  const monthName = displayDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   const thisMonthExp = getExpenses(monthStart, monthEnd);
   const thisMonthInc = getIncome(monthStart, monthEnd);
@@ -207,11 +222,12 @@ export function renderDashboard(container) {
   const totalInc = thisMonthInc.reduce((s, x) => s + x.amount, 0);
   const savings = totalInc - totalExp;
 
-  const score = calcHealthScore();
+  const score = calcHealthScore(monthStart, monthEnd);
   const { grade, color: scoreColor, msg } = getScoreGrade(score);
-  const insights = getInsights();
-  const prompts = getPrompts();
+  const insights = getInsights(monthStart, monthEnd);
+  const prompts = getPrompts(monthStart, monthEnd);
   const catData = sumByCategory(thisMonthExp);
+  const budgetAlerts = getBudgetAlerts(monthStart, monthEnd);
 
   container.innerHTML = `
     <div class="fade-in">
@@ -219,6 +235,18 @@ export function renderDashboard(container) {
         <div>
           <h2>Dashboard</h2>
           <p class="text-sm text-muted">${now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+        <div class="header-actions">
+          <div class="period-nav">
+            <button class="btn btn-ghost btn-sm btn-icon" id="dashPrev" aria-label="Previous month">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
+            <span class="period-label">${isCurrentMonth ? 'This Month' : monthName}</span>
+            <button class="btn btn-ghost btn-sm btn-icon" id="dashNext" aria-label="Next month" ${isCurrentMonth ? 'disabled' : ''}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+            ${!isCurrentMonth ? '<button class="btn btn-ghost btn-sm" id="dashToday">Today</button>' : ''}
+          </div>
         </div>
       </div>
 
@@ -266,11 +294,40 @@ export function renderDashboard(container) {
         </div>
       ` : ''}
 
-      <div class="cards-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="cards-grid cards-grid-3">
         <div class="card"><div class="card-label">💰 Monthly Income</div><div class="card-value green">${fmt(totalInc, settings.currency)}</div></div>
         <div class="card"><div class="card-label">💸 Monthly Expenses</div><div class="card-value red">${fmt(totalExp, settings.currency)}</div></div>
         <div class="card"><div class="card-label">📊 Net Savings</div><div class="card-value ${savings >= 0 ? 'green' : 'red'}">${fmt(savings, settings.currency)}</div></div>
       </div>
+
+      ${budgetAlerts.length ? `
+        <div class="panel mb-20">
+          <div class="panel-header">
+            <h3>Budget Status</h3>
+            <span class="text-sm text-muted">${budgetAlerts.length} budget${budgetAlerts.length > 1 ? 's' : ''}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:12px">
+            ${budgetAlerts.map(b => `
+              <div style="padding:12px;background:var(--bg3)">
+                <div class="flex flex-center flex-between mb-8">
+                  <div class="flex flex-center gap-8">
+                    <span aria-hidden="true">${b.icon}</span>
+                    <span class="text-sm" style="font-weight:500">${b.name}</span>
+                  </div>
+                  <span class="badge" style="color:${b.statusColor};border-color:${b.statusColor}">${b.status}</span>
+                </div>
+                <div class="flex flex-center flex-between text-sm mb-8">
+                  <span class="text-muted">${fmt(b.spent, settings.currency)} of ${fmt(b.limit, settings.currency)}</span>
+                  <span style="font-weight:600;color:${b.statusColor}">${b.pct.toFixed(0)}%</span>
+                </div>
+                <div class="progress-bar" style="height:4px">
+                  <div class="progress-fill" style="width:${b.pct}%;background:${b.statusColor}"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      ` : ''}
 
       <div class="grid-3">
         <div class="panel">
@@ -305,13 +362,17 @@ export function renderDashboard(container) {
     </div>
   `;
 
+  document.getElementById('dashPrev')?.addEventListener('click', () => { dashMonthOffset--; renderDashboard(container); });
+  document.getElementById('dashNext')?.addEventListener('click', () => { if(dashMonthOffset < 0) { dashMonthOffset++; renderDashboard(container); } });
+  document.getElementById('dashToday')?.addEventListener('click', () => { dashMonthOffset = 0; renderDashboard(container); });
+
   setTimeout(() => {
     drawHealthRing('healthRing', score);
     drawPieChart('dashPie', catData, totalExp, settings.currency);
     const last6 = [];
     const labels = [];
     for(let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d = new Date(displayDate.getFullYear(), displayDate.getMonth() - i, 1);
       const ms = d.toISOString().slice(0, 7) + '-01';
       const me = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
       last6.push(getExpenses(ms, me).reduce((s, x) => s + x.amount, 0));
