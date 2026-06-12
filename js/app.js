@@ -6,6 +6,7 @@ import { setChartUtils } from './charts.js';
 import { fmt, fmtShort, EXPENSE_CATS, validateTransaction, uid, today } from './utils.js';
 import { applyTheme } from './pages/settings.js';
 import { toastSuccess } from './toast.js';
+import { initLockScreen, lockApp, resetLockTimer, stopLockTimer, isLocked, isLockEnabled } from './lockscreen.js';
 
 // Page imports
 import { renderDashboard } from './pages/dashboard.js';
@@ -89,6 +90,13 @@ function init() {
   // Process recurring
   processRecurring();
 
+  // Init lock screen — blocks until unlocked
+  const afterUnlock = () => {
+    navigate('dashboard');
+    startAutoLock();
+  };
+  initLockScreen(afterUnlock);
+
   // Expose theme toggle globally
   const themeToggle = document.getElementById('themeToggle');
   if(themeToggle) {
@@ -101,9 +109,6 @@ function init() {
       updateSettings('theme', newTheme);
     });
   }
-
-  // Render initial page
-  navigate('dashboard');
 
   // Quick-add FAB
   const fab = document.getElementById('fabQuickAdd');
@@ -149,6 +154,39 @@ function init() {
   document.addEventListener('keydown', e => {
     if(e.key === 'Escape') closeQuickAdd();
   });
+
+  // === AUTO-LOCK & LIFECYCLE ===
+  function startAutoLock() {
+    const activityEvents = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    const resetTimer = () => {
+      if(!isLockEnabled() || isLocked()) return;
+      resetLockTimer(lockApp);
+    };
+    activityEvents.forEach(evt => document.addEventListener(evt, resetTimer, { passive: true }));
+    resetLockTimer(lockApp);
+  }
+
+  // Lock on tab hide / app background
+  document.addEventListener('visibilitychange', () => {
+    if(document.hidden && isLockEnabled() && !isLocked()) {
+      lockApp();
+    }
+  });
+
+  // Lock on window blur (mobile: user switches app)
+  window.addEventListener('blur', () => {
+    if(isLockEnabled() && !isLocked()) {
+      lockApp();
+    }
+  });
+
+  // Prevent back button bypass on mobile
+  window.addEventListener('popstate', () => {
+    if(isLockEnabled() && isLocked()) {
+      history.pushState(null, '', location.href);
+    }
+  });
+  if(isLockEnabled()) history.pushState(null, '', location.href);
 }
 
 // Run when DOM is ready

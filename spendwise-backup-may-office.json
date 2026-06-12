@@ -197,6 +197,7 @@
       "frequency": "monthly"
     },
     {
+      "id": "mqav91by89dakr",
       "type": "expense",
       "amount": 44,
       "date": "2026-06-12",
@@ -205,10 +206,10 @@
       "description": "",
       "tags": [],
       "recurring": false,
-      "frequency": "monthly",
-      "id": "mqav91by89dakr"
+      "frequency": "monthly"
     },
     {
+      "id": "mqaw195vj23may",
       "type": "expense",
       "amount": 24,
       "date": "2026-06-12",
@@ -217,8 +218,31 @@
       "description": "Office",
       "tags": [],
       "recurring": false,
+      "frequency": "monthly"
+    },
+    {
+      "type": "expense",
+      "amount": 66,
+      "date": "2026-06-12",
+      "category": "health",
+      "payment": "cash",
+      "description": "Allergy",
+      "tags": [],
+      "recurring": false,
       "frequency": "monthly",
-      "id": "mqaw195vj23may"
+      "id": "mqb1k6bnkp8gub"
+    },
+    {
+      "type": "expense",
+      "amount": 78,
+      "date": "2026-06-12",
+      "category": "food",
+      "payment": "cash",
+      "description": "Dinner",
+      "tags": [],
+      "recurring": false,
+      "frequency": "monthly",
+      "id": "mqb1l6fk7kx2jx"
     }
   ],
   "budgets": [],

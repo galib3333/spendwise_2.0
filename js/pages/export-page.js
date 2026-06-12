@@ -2,6 +2,7 @@
 import { getTransactions, getBudgets, getSavingsGoals, getRecurringList, addBulkTransactions, replaceAllData } from '../store.js';
 import { today, fmt, getCat, escapeCSV, parseCSVSimple, detectBankFormat, mapCSVRow, sanitizeImportData, uid } from '../utils.js';
 import { toastSuccess, toastError } from '../toast.js';
+import { encryptData, decryptData } from '../security.js';
 
 function download(content, filename, type) {
   const blob = new Blob([content], { type });
@@ -93,6 +94,79 @@ function exportMonthlyReport() {
   });
   download(csv, 'spendwise-monthly-report.csv', 'text/csv');
   toastSuccess('Monthly report exported');
+}
+
+// ===== ENCRYPTED EXPORT/IMPORT =====
+async function exportEncrypted() {
+  const password = prompt('Set a password for this backup:');
+  if(!password || password.length < 4) {
+    if(password !== null) toastError('Password must be at least 4 characters');
+    return;
+  }
+
+  const data = {
+    transactions: getTransactions(),
+    budgets: getBudgets(),
+    savingsGoals: getSavingsGoals(),
+    recurringList: getRecurringList(),
+    exportDate: today(),
+    app: 'SpendWise',
+    version: 1
+  };
+
+  try {
+    const encrypted = await encryptData(data, password);
+    const blob = new Blob([JSON.stringify(encrypted)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `spendwise-encrypted-${today()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toastSuccess('Encrypted backup exported');
+  } catch(e) {
+    toastError('Encryption failed: ' + e.message);
+  }
+}
+
+async function importEncrypted() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.setAttribute('aria-label', 'Import encrypted backup file');
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      try {
+        const encrypted = JSON.parse(ev.target.result);
+        if(!encrypted.salt || !encrypted.iv || !encrypted.data) {
+          toastError('Not an encrypted backup file');
+          return;
+        }
+
+        const password = prompt('Enter backup password:');
+        if(!password) return;
+
+        const data = await decryptData(encrypted, password);
+        if(!data) {
+          toastError('Wrong password or corrupted file');
+          return;
+        }
+
+        const clean = sanitizeImportData(data);
+        if(!clean) { toastError('Invalid data in backup'); return; }
+        replaceAllData(clean);
+        toastSuccess('Encrypted backup imported!');
+        renderExport(document.getElementById('mainContent'));
+      } catch(err) {
+        toastError('Invalid file format');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
 }
 
 // ===== IMPORT JSON =====
@@ -328,6 +402,13 @@ export function renderExport(container) {
             <p class="text-sm text-muted">Current month</p>
           </div>
         </div>
+        <div class="panel" style="cursor:pointer;border:1px solid var(--accent)" onclick="window.__exportEncrypted()" role="button" tabindex="0" aria-label="Export encrypted backup">
+          <div style="text-align:center;padding:16px">
+            <div style="font-size:2rem;margin-bottom:8px" aria-hidden="true">🔐</div>
+            <h4 style="margin-bottom:4px;font-size:0.7rem">Encrypted Backup</h4>
+            <p class="text-sm text-muted">Password protected</p>
+          </div>
+        </div>
       </div>
 
       <h3 class="text-sm text-muted mb-16" style="text-transform:uppercase;letter-spacing:2px;font-family:var(--font-mono)">Import</h3>
@@ -344,6 +425,13 @@ export function renderExport(container) {
             <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">📂</div>
             <h3 style="margin-bottom:8px">Import JSON</h3>
             <p class="text-sm text-muted">Restore from a SpendWise JSON backup file.</p>
+          </div>
+        </div>
+        <div class="panel" style="cursor:pointer;border:1px solid var(--accent)" onclick="window.__importEncrypted()" role="button" tabindex="0" aria-label="Import encrypted backup">
+          <div style="text-align:center;padding:20px">
+            <div style="font-size:2.5rem;margin-bottom:12px" aria-hidden="true">🔓</div>
+            <h3 style="margin-bottom:8px">Import Encrypted</h3>
+            <p class="text-sm text-muted">Restore from a password-protected backup.</p>
           </div>
         </div>
       </div>
@@ -380,8 +468,10 @@ export function renderExport(container) {
   window.__exportRecurringCSV = exportRecurringCSV;
   window.__exportJSON = exportJSON;
   window.__exportMonthlyReport = exportMonthlyReport;
+  window.__exportEncrypted = exportEncrypted;
   window.__importCSV = openCSVImport;
   window.__importJSON = importJSON;
+  window.__importEncrypted = importEncrypted;
 
   document.getElementById('csvImportOverlay')?.addEventListener('click', e => {
     if(e.target.id === 'csvImportOverlay') e.target.classList.remove('show');

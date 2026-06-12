@@ -192,5 +192,11 @@ export function clearAllData() {
   state.savingsGoals = [];
   state.recurringList = [];
   persist();
+  // Clear security data
+  localStorage.removeItem('sw_salt');
+  localStorage.removeItem('sw_pin_hash');
+  localStorage.removeItem('sw_lock');
+  localStorage.removeItem('sw_lock_attempts');
+  localStorage.removeItem('sw_lock_timeout');
   notify('transactions'); notify('budgets'); notify('savingsGoals'); notify('recurringList');
 }

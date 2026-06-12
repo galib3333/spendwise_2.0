@@ -1348,3 +1348,116 @@ select {
   }
   .fade-in { animation: none; }
 }
+
+/* ===== LOCK SCREEN ===== */
+.lock-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.lock-screen.show {
+  opacity: 1;
+  pointer-events: all;
+}
+.lock-panel {
+  width: 100%;
+  max-width: 340px;
+  padding: 32px 24px;
+  text-align: center;
+}
+.lock-panel h2 {
+  margin: 0 0 4px;
+  font-size: 1.4rem;
+  border: none;
+  padding: 0;
+}
+.lock-panel p {
+  color: var(--text2);
+  margin: 0 0 24px;
+  font-size: 0.8rem;
+}
+.lock-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+  color: var(--accent);
+}
+.pin-dots {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.pin-dot {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  background: transparent;
+  transition: all 0.15s ease;
+}
+.pin-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pin-dot.error {
+  background: var(--red);
+  border-color: var(--red);
+  animation: pinShake 0.4s ease;
+}
+@keyframes pinShake {
+  0%,100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.pin-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  max-width: 240px;
+  margin: 0 auto 20px;
+}
+.pin-key {
+  height: 52px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  background: var(--bg3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.pin-key:hover { background: var(--bg4); }
+.pin-key:active { background: var(--accent); color: var(--bg); }
+.pin-key.empty { background: transparent; border-color: transparent; cursor: default; }
+.pin-key.del { font-size: 0.9rem; }
+.pin-key.biometric { font-size: 1.4rem; }
+.lock-error {
+  color: var(--red);
+  font-size: 0.75rem;
+  min-height: 18px;
+  margin-bottom: 8px;
+}
+.lock-setup .pin-key.confirm { background: var(--green); color: var(--bg); border-color: var(--green); }
+.lock-footer {
+  margin-top: 16px;
+}
+.lock-footer a,
+.lock-footer button {
+  color: var(--text3);
+  font-size: 0.72rem;
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.lock-footer a:hover,
+.lock-footer button:hover { color: var(--text); }

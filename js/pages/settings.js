@@ -1,6 +1,8 @@
 // ===== SETTINGS PAGE =====
 import { getSettings, updateSettings, clearAllData } from '../store.js';
 import { toastSuccess } from '../toast.js';
+import { hasPIN, setupPIN, removePIN, isLockEnabled, setLockEnabled, getLockTimeout, setLockTimeout } from '../security.js';
+import { changePIN, disableLock, lockApp } from '../lockscreen.js';
 
 function applyTheme() {
   const settings = getSettings();
@@ -18,6 +20,9 @@ function toggleTheme() {
 
 export function renderSettings(container) {
   const settings = getSettings();
+  const lockEnabled = isLockEnabled();
+  const pinSet = hasPIN();
+  const lockTimeout = getLockTimeout();
 
   container.innerHTML = `
     <div class="fade-in">
@@ -52,6 +57,40 @@ export function renderSettings(container) {
             <span class="text-sm">Dark</span>
           </div>
         </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+        <h3 style="margin-bottom:16px">Security</h3>
+
+        <div class="input-group">
+          <label>Lock Screen</label>
+          <div class="flex flex-center gap-8">
+            <span class="text-sm">Disabled</span>
+            <div class="toggle ${lockEnabled ? 'active' : ''}" id="lockToggle" role="switch" aria-checked="${lockEnabled}" aria-label="Toggle lock screen" tabindex="0"></div>
+            <span class="text-sm">Enabled</span>
+          </div>
+          <p style="color:var(--text3);font-size:0.72rem;margin:4px 0 0">${pinSet ? 'PIN is set' : 'No PIN set — tap enable to set up'}</p>
+        </div>
+
+        <div class="input-group" id="autoLockGroup" style="${lockEnabled ? '' : 'display:none'}">
+          <label for="autoLockTimeout">Auto-lock after inactivity</label>
+          <select class="input" id="autoLockTimeout">
+            <option value="30000" ${lockTimeout === 30000 ? 'selected' : ''}>30 seconds</option>
+            <option value="60000" ${lockTimeout === 60000 ? 'selected' : ''}>1 minute</option>
+            <option value="300000" ${lockTimeout === 300000 ? 'selected' : ''}>5 minutes</option>
+            <option value="600000" ${lockTimeout === 600000 ? 'selected' : ''}>10 minutes</option>
+            <option value="1800000" ${lockTimeout === 1800000 ? 'selected' : ''}>30 minutes</option>
+          </select>
+        </div>
+
+        <div class="flex gap-8" id="pinActions" style="${pinSet ? '' : 'display:none'}">
+          <button class="btn btn-secondary" id="changePinBtn">Change PIN</button>
+          <button class="btn btn-secondary" id="removePinBtn" style="color:var(--red)">Remove PIN</button>
+        </div>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+        <h3 style="margin-bottom:16px">Legal</h3>
+        <button class="btn btn-secondary" id="privacyPolicyBtn">Privacy Policy</button>
+
         <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
         <h3 style="margin-bottom:16px">Danger Zone</h3>
         <button class="btn btn-danger" id="resetDataBtn" aria-label="Delete all data">
@@ -60,6 +99,8 @@ export function renderSettings(container) {
       </div>
     </div>
   `;
+
+  // === Event Listeners ===
 
   document.getElementById('settingCurrency')?.addEventListener('change', e => {
     updateSettings('currency', e.target.value);
@@ -82,6 +123,71 @@ export function renderSettings(container) {
     }
   });
 
+  // Lock screen toggle
+  document.getElementById('lockToggle')?.addEventListener('click', async () => {
+    if(isLockEnabled()) {
+      disableLock();
+      document.getElementById('autoLockGroup').style.display = 'none';
+      document.getElementById('pinActions').style.display = 'none';
+      document.getElementById('lockToggle').classList.remove('active');
+      toastSuccess('Lock screen disabled');
+    } else {
+      // Show lock screen setup
+      const { showLockScreen } = await import('../lockscreen.js');
+      showLockScreen(() => {
+        // After PIN setup, refresh settings
+        renderSettings(container);
+        toastSuccess('Lock screen enabled');
+      });
+    }
+  });
+
+  document.getElementById('lockToggle')?.addEventListener('keydown', e => {
+    if(e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      document.getElementById('lockToggle').click();
+    }
+  });
+
+  // Auto-lock timeout
+  document.getElementById('autoLockTimeout')?.addEventListener('change', e => {
+    setLockTimeout(parseInt(e.target.value));
+    toastSuccess('Auto-lock updated');
+  });
+
+  // Change PIN
+  document.getElementById('changePinBtn')?.addEventListener('click', () => {
+    changePIN();
+  });
+
+  // Remove PIN
+  document.getElementById('removePinBtn')?.addEventListener('click', () => {
+    if(confirm('Remove PIN lock? Your data will no longer be protected.')) {
+      disableLock();
+      renderSettings(container);
+      toastSuccess('PIN removed');
+    }
+  });
+
+  // Privacy Policy
+  document.getElementById('privacyPolicyBtn')?.addEventListener('click', async () => {
+    const { getPrivacyPolicy } = await import('../security.js');
+    const policy = getPrivacyPolicy();
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay show';
+    overlay.innerHTML = `<div class="modal" style="max-width:600px;max-height:80vh;overflow-y:auto">
+      <h3>Privacy Policy</h3>
+      <div style="color:var(--text2);font-size:0.8rem;line-height:1.6;white-space:pre-wrap">${policy}</div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="privacyCloseBtn">Close</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', e => { if(e.target === overlay) overlay.remove(); });
+    overlay.querySelector('#privacyCloseBtn')?.addEventListener('click', () => overlay.remove());
+  });
+
+  // Reset data
   document.getElementById('resetDataBtn')?.addEventListener('click', () => {
     if(confirm('Delete ALL data? This cannot be undone.')) {
       clearAllData();
