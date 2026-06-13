@@ -1,7 +1,8 @@
 // ===== RECURRING PAGE =====
 import { getRecurringList, addRecurring, updateRecurring, deleteRecurring, toggleRecurringActive, getSettings } from '../store.js';
 import { fmt, getCat, EXPENSE_CATS, validateRecurring, uid, today } from '../utils.js';
-import { toastSuccess, toastInfo } from '../toast.js';
+import { escapeHTML } from '../sanitize.js';
+import { toastSuccess, toastInfo, toastError } from '../toast.js';
 import { openModal, closeModal } from '../modals.js';
 
 function openAddRecurring() {
@@ -11,7 +12,7 @@ function openAddRecurring() {
   document.getElementById('recStart').value = today();
   document.getElementById('recNext').value = today();
   const sel = document.getElementById('recCategory');
-  sel.innerHTML = EXPENSE_CATS.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  sel.innerHTML = EXPENSE_CATS.map(c => `<option value="${c.id}">${c.icon} ${escapeHTML(c.name)}</option>`).join('');
   openModal('recurringModal');
 }
 
@@ -25,7 +26,7 @@ function openEditRecurring(id) {
   document.getElementById('recStart').value = r.startDate;
   document.getElementById('recNext').value = r.nextDate;
   const sel = document.getElementById('recCategory');
-  sel.innerHTML = EXPENSE_CATS.map(c => `<option value="${c.id}">${c.icon} ${c.name}</option>`).join('');
+  sel.innerHTML = EXPENSE_CATS.map(c => `<option value="${c.id}">${c.icon} ${escapeHTML(c.name)}</option>`).join('');
   sel.value = r.category;
   openModal('recurringModal');
 }
@@ -40,7 +41,7 @@ function saveRecurring() {
   const id = document.getElementById('recEditId').value;
 
   const errors = validateRecurring({ amount, description: desc, frequency: freq, category: cat, startDate: start, nextDate: next });
-  if(errors.length) { alert(errors[0]); return; }
+  if(errors.length) { toastError(errors[0]); return; }
 
   const data = { amount, description: desc, frequency: freq, category: cat, startDate: start, nextDate: next };
 
@@ -86,7 +87,7 @@ export function renderRecurring(container) {
     <div class="fade-in">
       <div class="header">
         <h2>Recurring Expenses</h2>
-        <button class="btn btn-primary" onclick="window.__openAddRecurring()" aria-label="Add recurring expense">
+        <button class="btn btn-primary" id="addRecurringBtn" aria-label="Add recurring expense">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Recurring
         </button>
@@ -104,21 +105,21 @@ export function renderRecurring(container) {
               <div class="flex flex-center gap-12">
                 <div class="transaction-icon" style="background:${cat.color}22;color:${cat.color}" aria-hidden="true">${cat.icon}</div>
                 <div>
-                  <div style="font-weight:600">${r.description}</div>
-                  <div class="text-sm text-muted">${cat.name} · ${FREQ_LABELS[r.frequency] || r.frequency}</div>
+                  <div style="font-weight:600">${escapeHTML(r.description)}</div>
+                  <div class="text-sm text-muted">${escapeHTML(cat.name)} · ${escapeHTML(FREQ_LABELS[r.frequency] || r.frequency)}</div>
                 </div>
               </div>
               <div class="flex flex-center gap-12">
                 <span style="font-weight:600;color:var(--red)">${fmt(r.amount, settings.currency)}</span>
                 <span class="badge ${r.active ? 'badge-success' : 'badge-danger'}">${r.active ? 'Active' : 'Paused'}</span>
                 <div class="flex gap-8">
-                  <button class="btn btn-ghost btn-sm btn-icon" onclick="window.__toggleRecurring('${r.id}')" title="${r.active ? 'Pause' : 'Resume'}" aria-label="${r.active ? 'Pause' : 'Resume'} recurring expense">
+                  <button class="btn btn-ghost btn-sm btn-icon" data-action="toggle" data-id="${escapeHTML(r.id)}" title="${r.active ? 'Pause' : 'Resume'}" aria-label="${r.active ? 'Pause' : 'Resume'} recurring expense">
                     ${r.active ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>' : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>'}
                   </button>
-                  <button class="btn btn-ghost btn-sm btn-icon" onclick="window.__openEditRecurring('${r.id}')" title="Edit" aria-label="Edit recurring expense">
+                  <button class="btn btn-ghost btn-sm btn-icon" data-action="edit" data-id="${escapeHTML(r.id)}" title="Edit" aria-label="Edit recurring expense">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
-                  <button class="btn btn-ghost btn-sm btn-icon" onclick="window.__deleteRecurring('${r.id}')" title="Delete" aria-label="Delete recurring expense">
+                  <button class="btn btn-ghost btn-sm btn-icon" data-action="delete" data-id="${escapeHTML(r.id)}" title="Delete" aria-label="Delete recurring expense">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                   </button>
                 </div>
@@ -130,9 +131,16 @@ export function renderRecurring(container) {
     </div>
   `;
 
-  window.__openAddRecurring = openAddRecurring;
-  window.__openEditRecurring = openEditRecurring;
-  window.__deleteRecurring = deleteRecurringHandler;
-  window.__toggleRecurring = toggleHandler;
-  window.__saveRecurring = saveRecurring;
+  document.getElementById('addRecurringBtn')?.addEventListener('click', openAddRecurring);
+  document.getElementById('recSaveBtn')?.addEventListener('click', saveRecurring);
+
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if(btn.dataset.action === 'toggle') toggleHandler(id);
+      else if(btn.dataset.action === 'edit') openEditRecurring(id);
+      else if(btn.dataset.action === 'delete') deleteRecurringHandler(id);
+    });
+  });
 }

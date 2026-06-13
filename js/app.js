@@ -5,7 +5,7 @@ import { initModals } from './modals.js';
 import { setChartUtils } from './charts.js';
 import { fmt, fmtShort, EXPENSE_CATS, validateTransaction, uid, today } from './utils.js';
 import { applyTheme } from './pages/settings.js';
-import { toastSuccess } from './toast.js';
+import { toastSuccess, toastError } from './toast.js';
 import { initLockScreen, lockApp, resetLockTimer, stopLockTimer } from './lockscreen.js';
 import { isLocked, isLockEnabled } from './security.js';
 
@@ -137,7 +137,7 @@ function setupQuickAdd() {
     const date = today();
 
     const errors = validateTransaction({ amount, date, category, type: 'expense', payment });
-    if(errors.length) { alert(errors[0]); return; }
+    if(errors.length) { toastError(errors[0]); return; }
 
     addTransaction({ id: uid(), type: 'expense', amount, date, category, payment, description, tags: [], recurring: false, frequency: null });
     toastSuccess('Expense added');

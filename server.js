@@ -6,26 +6,58 @@ const PORT = process.argv.includes('--dev') ? 3000 : 8000;
 const DIR = __dirname;
 
 const MIME = {
-  '.html': 'text/html',
-  '.css': 'text/css',
-  '.js': 'application/javascript',
-  '.json': 'application/json',
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json'
+};
+
+const SECURITY_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self';"
 };
 
 const server = http.createServer((req, res) => {
-  let filePath = path.join(DIR, req.url === '/' ? 'index.html' : req.url);
+  // Only allow GET and HEAD
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.writeHead(405, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+    res.end('Method Not Allowed');
+    return;
+  }
+
+  // Prevent directory traversal
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const safePath = path.normalize(url.pathname).replace(/^(\.\.[\/\\])+/, '');
+  let filePath = path.join(DIR, safePath === '/' ? 'index.html' : safePath);
+
+  // Ensure the resolved path is within the project directory
+  if (!filePath.startsWith(DIR)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
+    res.end('Forbidden');
+    return;
+  }
+
   const ext = path.extname(filePath);
 
   fs.readFile(filePath, (err, data) => {
-    if(err) {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain', ...SECURITY_HEADERS });
       res.end('Not found');
       return;
     }
-    res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
+    res.writeHead(200, {
+      'Content-Type': MIME[ext] || 'application/octet-stream',
+      'Cache-Control': ext === '.html' ? 'no-cache' : 'public, max-age=31536000, immutable',
+      ...SECURITY_HEADERS
+    });
     res.end(data);
   });
 });

@@ -270,12 +270,13 @@ body::before {
 
 .btn-ghost {
   background: transparent;
-  color: var(--text3);
+  color: var(--text2);
   border-color: transparent;
 }
 
 .btn-ghost:hover {
   color: var(--text);
+  background: var(--bg3);
   border-color: var(--border);
 }
 
@@ -286,6 +287,19 @@ body::before {
   height: 32px;
   padding: 0;
   justify-content: center;
+}
+
+.btn-icon:hover {
+  background: var(--bg4);
+  color: var(--text);
+}
+
+.btn-icon svg {
+  transition: color 0.2s ease;
+}
+
+.btn-ghost.btn-icon:hover svg {
+  color: var(--accent);
 }
 
 /* Cards */
@@ -396,7 +410,27 @@ canvas { width: 100% !important; }
 }
 
 .table tr:last-child td { border-bottom: none; }
+.table tr { transition: background 0.15s ease; }
 .table tr:hover td { background: var(--glass); }
+.table tr:hover .btn-icon { opacity: 1; }
+
+/* Delete button red hover */
+.btn-icon[data-action="delete"]:hover {
+  color: var(--red);
+  background: rgba(196, 138, 123, 0.12);
+}
+
+/* Edit button accent hover */
+.btn-icon[data-action="edit"]:hover {
+  color: var(--accent);
+  background: rgba(196, 184, 154, 0.12);
+}
+
+/* Toggle button blue hover */
+.btn-icon[data-action="toggle"]:hover {
+  color: var(--blue);
+  background: rgba(123, 154, 196, 0.12);
+}
 
 /* Tags */
 .tag {

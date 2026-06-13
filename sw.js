@@ -12,6 +12,7 @@ const ASSETS = [
   '/js/router.js',
   '/js/modals.js',
   '/js/security.js',
+  '/js/sanitize.js',
   '/js/lockscreen.js',
   '/js/pages/dashboard.js',
   '/js/pages/transactions.js',

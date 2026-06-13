@@ -1,6 +1,7 @@
 // ===== DASHBOARD PAGE =====
 import { getTransactions, getBudgets, getSavingsGoals, getRecurringList, getSettings } from '../store.js';
 import { today, fmt, getCat } from '../utils.js';
+import { escapeHTML } from '../sanitize.js';
 import { drawPieChart, drawBarChart, drawHealthRing } from '../charts.js';
 
 function getExpenses(start, end) {
@@ -88,12 +89,12 @@ function calcHealthScore(monthStart, monthEnd) {
   }
   if (overBudgetCats.length > 0) {
     const names = overBudgetCats.map(c => getCat(c.category).name).slice(0, 2);
-    insights.push({ icon: '📊', text: `Over budget in <strong>${names.join(', ')}</strong>`, color: 'var(--red)' });
+    insights.push({ icon: '📊', text: `Over budget in <strong>${escapeHTML(names.join(', '))}</strong>`, color: 'var(--red)' });
   }
   if (expChange > 0.2 && totalExpLast > 0) {
     const topCats = sumByCategory(thisMonthExp).slice(0, 2);
     const topNames = topCats.map(c => getCat(c.category).name).join(', ');
-    insights.push({ icon: '📈', text: `Spending up <strong>${Math.round(expChange * 100)}%</strong> vs last month — mainly ${topNames}`, color: 'var(--red)' });
+    insights.push({ icon: '📈', text: `Spending up <strong>${Math.round(expChange * 100)}%</strong> vs last month — mainly ${escapeHTML(topNames)}`, color: 'var(--red)' });
   } else if (expChange < -0.1 && totalExpLast > 0) {
     insights.push({ icon: '📉', text: `Spending down <strong>${Math.abs(Math.round(expChange * 100))}%</strong> vs last month — nice work!`, color: 'var(--green)' });
   }
@@ -176,8 +177,8 @@ function getInsights(monthStart, monthEnd) {
       const catChange = ((cat.amount - lastAmt) / lastAmt * 100);
       if(Math.abs(catChange) > 15) {
         const info = getCat(cat.category);
-        insights.push({
-          text: `<strong>${info.name}</strong> spending ${catChange > 0 ? 'increased' : 'decreased'} ${Math.abs(catChange).toFixed(0)}% — ${fmt(lastAmt, settings.currency)} → ${fmt(cat.amount, settings.currency)}`,
+    insights.push({
+      text: `<strong>${escapeHTML(info.name)}</strong> spending ${catChange > 0 ? 'increased' : 'decreased'} ${Math.abs(catChange).toFixed(0)}% — ${fmt(lastAmt, settings.currency)} → ${fmt(cat.amount, settings.currency)}`,
           color: catChange > 0 ? 'var(--red)' : 'var(--green)',
           change: `${catChange > 0 ? '+' : '-'}${Math.abs(catChange).toFixed(0)}%`,
           changeColor: catChange > 0 ? 'var(--red)' : 'var(--green)'
@@ -190,7 +191,7 @@ function getInsights(monthStart, monthEnd) {
     const topExp = thisMonthExp.reduce((max, x) => x.amount > max.amount ? x : max, thisMonthExp[0]);
     const topCat = getCat(topExp.category);
     insights.push({
-      text: `Largest expense: <strong>${topExp.description || topCat.name}</strong> at ${fmt(topExp.amount, settings.currency)}`,
+      text: `Largest expense: <strong>${escapeHTML(topExp.description || topCat.name)}</strong> at ${fmt(topExp.amount, settings.currency)}`,
       color: 'var(--accent)', change: '', changeColor: ''
     });
   }
@@ -237,9 +238,9 @@ function getPrompts(monthStart, monthEnd) {
     const ratio = spent / b.limit;
     const info = getCat(b.category);
     if(ratio >= 0.85 && ratio < 1.0) {
-      prompts.push({ icon: info.icon, bg: 'var(--yellow)', title: 'Budget Warning', text: `${info.name}: ${Math.round(ratio * 100)}% used — ${fmt(b.limit - spent, settings.currency)} left` });
+      prompts.push({ icon: info.icon, bg: 'var(--yellow)', title: 'Budget Warning', text: `${escapeHTML(info.name)}: ${Math.round(ratio * 100)}% used — ${fmt(b.limit - spent, settings.currency)} left` });
     } else if(ratio >= 1.0) {
-      prompts.push({ icon: info.icon, bg: 'var(--red)', title: 'Over Budget', text: `${info.name}: ${fmt(spent, settings.currency)} of ${fmt(b.limit, settings.currency)} — ${fmt(spent - b.limit, settings.currency)} over` });
+      prompts.push({ icon: info.icon, bg: 'var(--red)', title: 'Over Budget', text: `${escapeHTML(info.name)}: ${fmt(spent, settings.currency)} of ${fmt(b.limit, settings.currency)} — ${fmt(spent - b.limit, settings.currency)} over` });
     }
   });
 
@@ -247,9 +248,9 @@ function getPrompts(monthStart, monthEnd) {
   savingsGoals.forEach(g => {
     const pct = g.target > 0 ? (g.current / g.target) * 100 : 0;
     if(pct >= 80 && pct < 100) {
-      prompts.push({ icon: '🎯', bg: 'var(--green)', title: 'Goal Almost There', text: `"${g.name}" is ${Math.round(pct)}% — ${fmt(g.target - g.current, settings.currency)} to go` });
+      prompts.push({ icon: '🎯', bg: 'var(--green)', title: 'Goal Almost There', text: `"${escapeHTML(g.name)}" is ${Math.round(pct)}% — ${fmt(g.target - g.current, settings.currency)} to go` });
     } else if(pct >= 100) {
-      prompts.push({ icon: '🎉', bg: 'var(--green)', title: 'Goal Reached', text: `You hit your "${g.name}" target!` });
+      prompts.push({ icon: '🎉', bg: 'var(--green)', title: 'Goal Reached', text: `You hit your "${escapeHTML(g.name)}" target!` });
     }
   });
 
@@ -425,7 +426,7 @@ export function renderDashboard(container) {
                 <div class="flex flex-center flex-between mb-8">
                   <div class="flex flex-center gap-8">
                     <span aria-hidden="true">${b.icon}</span>
-                    <span class="text-sm" style="font-weight:500">${b.name}</span>
+                    <span class="text-sm" style="font-weight:500">${escapeHTML(b.name)}</span>
                   </div>
                   <span class="badge" style="color:${b.statusColor};border-color:${b.statusColor}">${b.status}</span>
                 </div>
@@ -457,7 +458,7 @@ export function renderDashboard(container) {
                 <div class="flex flex-center flex-between mb-8">
                   <div class="flex flex-center gap-8">
                     <div style="width:10px;height:10px;border-radius:50%;background:${getCat(c.category).color}" aria-hidden="true"></div>
-                    <span class="text-sm">${getCat(c.category).icon} ${getCat(c.category).name}</span>
+                    <span class="text-sm">${getCat(c.category).icon} ${escapeHTML(getCat(c.category).name)}</span>
                   </div>
                   <span class="text-sm" style="font-weight:600">${fmt(c.amount, settings.currency)}</span>
                 </div>

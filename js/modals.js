@@ -30,12 +30,17 @@ export function closeModal(id) {
 }
 
 export function initModals() {
+  // Close modal on overlay click
   document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', e => {
       if(e.target === m) m.classList.remove('show');
     });
   });
 
-  // Expose globally for inline onclick handlers in HTML
-  window.__closeModal = closeModal;
+  // Close modal via data-close-modal attribute
+  document.querySelectorAll('[data-close-modal]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      closeModal(btn.dataset.closeModal);
+    });
+  });
 }

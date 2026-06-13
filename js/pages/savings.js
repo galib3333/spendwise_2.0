@@ -1,7 +1,8 @@
 // ===== SAVINGS GOALS PAGE =====
 import { getSavingsGoals, addGoal, updateGoal, deleteGoal, getTransactions, getSettings } from '../store.js';
 import { fmt, validateGoal, uid, today } from '../utils.js';
-import { toastSuccess, toastInfo } from '../toast.js';
+import { escapeHTML } from '../sanitize.js';
+import { toastSuccess, toastInfo, toastError } from '../toast.js';
 import { openModal, closeModal } from '../modals.js';
 import { drawLineChart } from '../charts.js';
 
@@ -33,7 +34,7 @@ function saveGoal() {
   const id = document.getElementById('goalEditId').value;
 
   const errors = validateGoal({ name, target, current });
-  if(errors.length) { alert(errors[0]); return; }
+  if(errors.length) { toastError(errors[0]); return; }
 
   if(id) {
     updateGoal(id, { name, target, current, date });
@@ -93,7 +94,7 @@ export function renderSavings(container) {
     <div class="fade-in">
       <div class="header">
         <h2>Savings Goals</h2>
-        <button class="btn btn-primary" onclick="window.__openAddGoal()" aria-label="Add savings goal">
+        <button class="btn btn-primary" id="addGoalBtn" aria-label="Add savings goal">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Goal
         </button>
@@ -120,12 +121,12 @@ export function renderSavings(container) {
             <div class="panel" style="position:relative;overflow:hidden">
               <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,${pct >= 100 ? 'var(--green)' : 'var(--accent)'},${pct >= 100 ? 'var(--green2)' : 'var(--accent2)'});width:${pct}%"></div>
               <div class="flex flex-center flex-between mb-16">
-                <h3 style="font-size:1rem">${g.name}</h3>
+                <h3 style="font-size:1rem">${escapeHTML(g.name)}</h3>
                 <div class="flex gap-8">
-                  <button class="btn btn-ghost btn-sm btn-icon" onclick="window.__openEditGoal('${g.id}')" title="Edit goal" aria-label="Edit ${g.name}">
+                  <button class="btn btn-ghost btn-sm btn-icon" data-action="edit" data-id="${escapeHTML(g.id)}" title="Edit goal" aria-label="Edit ${escapeHTML(g.name)}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                   </button>
-                  <button class="btn btn-ghost btn-sm btn-icon" onclick="window.__deleteGoal('${g.id}')" title="Delete goal" aria-label="Delete ${g.name}">
+                  <button class="btn btn-ghost btn-sm btn-icon" data-action="delete" data-id="${escapeHTML(g.id)}" title="Delete goal" aria-label="Delete ${escapeHTML(g.name)}">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
                   </button>
                 </div>
@@ -163,10 +164,16 @@ export function renderSavings(container) {
     </div>
   `;
 
-  window.__openAddGoal = openAddGoal;
-  window.__openEditGoal = openEditGoal;
-  window.__deleteGoal = deleteGoalHandler;
-  window.__saveGoal = saveGoal;
+  document.getElementById('addGoalBtn')?.addEventListener('click', openAddGoal);
+  document.getElementById('goalSaveBtn')?.addEventListener('click', saveGoal);
+
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if(btn.dataset.action === 'edit') openEditGoal(btn.dataset.id);
+      else if(btn.dataset.action === 'delete') deleteGoalHandler(btn.dataset.id);
+    });
+  });
 
   setTimeout(() => {
     drawLineChart('savingsTrend', trend.data, trend.labels, '#8faa7b');

@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="description" content="SpendWise — Smart expense tracking with budgets, reports, and savings goals">
 <meta name="theme-color" content="#1a1915">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self';">
 <link rel="manifest" href="manifest.json">
 <title>SpendWise — Expense Tracker</title>
 <link rel="stylesheet" href="expense-tracker.css">
@@ -73,7 +72,14 @@
       </div>
     </div>
   </aside>
-  <main class="main" id="mainContent" role="main" aria-label="Main content"></main>
+  <main class="main" id="mainContent" role="main" aria-label="Main content">
+    <noscript>
+      <div style="padding:40px;text-align:center;color:var(--text2)">
+        <h2>SpendWise requires JavaScript</h2>
+        <p>Please enable JavaScript in your browser to use this app.</p>
+      </div>
+    </noscript>
+  </main>
   <button class="fab" id="fabQuickAdd" aria-label="Quick add expense" title="Quick add expense">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
@@ -86,8 +92,8 @@
     <div class="input-group">
       <label>Type</label>
       <div class="tabs" id="typeTabs" role="tablist">
-        <button class="tab active" role="tab" aria-selected="true" onclick="window.__setTransType && window.__setTransType('expense')">Expense</button>
-        <button class="tab" role="tab" aria-selected="false" onclick="window.__setTransType && window.__setTransType('income')">Income</button>
+        <button class="tab active" role="tab" aria-selected="true" data-type="expense">Expense</button>
+        <button class="tab" role="tab" aria-selected="false" data-type="income">Income</button>
       </div>
     </div>
     <div class="form-row">
@@ -145,8 +151,8 @@
     </div>
     <input type="hidden" id="txId">
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="window.__closeModal && window.__closeModal('transactionModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="window.__saveTransaction && window.__saveTransaction()" id="txSaveBtn">Save Transaction</button>
+      <button class="btn btn-secondary" data-close-modal="transactionModal">Cancel</button>
+      <button class="btn btn-primary" id="txSaveBtn">Save Transaction</button>
     </div>
   </div>
 </div>
@@ -164,8 +170,8 @@
     </div>
     <input type="hidden" id="budgetEditId">
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="window.__closeModal && window.__closeModal('budgetModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="window.__saveBudget && window.__saveBudget()">Save Budget</button>
+      <button class="btn btn-secondary" data-close-modal="budgetModal">Cancel</button>
+      <button class="btn btn-primary" id="budgetSaveBtn">Save Budget</button>
     </div>
   </div>
 </div>
@@ -193,8 +199,8 @@
     </div>
     <input type="hidden" id="goalEditId">
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="window.__closeModal && window.__closeModal('savingsModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="window.__saveGoal && window.__saveGoal()">Save Goal</button>
+      <button class="btn btn-secondary" data-close-modal="savingsModal">Cancel</button>
+      <button class="btn btn-primary" id="goalSaveBtn">Save Goal</button>
     </div>
   </div>
 </div>
@@ -238,8 +244,8 @@
     </div>
     <input type="hidden" id="recEditId">
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="window.__closeModal && window.__closeModal('recurringModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="window.__saveRecurring && window.__saveRecurring()">Save</button>
+      <button class="btn btn-secondary" data-close-modal="recurringModal">Cancel</button>
+      <button class="btn btn-primary" id="recSaveBtn">Save</button>
     </div>
   </div>
 </div>

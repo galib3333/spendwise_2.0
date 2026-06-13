@@ -1,6 +1,7 @@
 // ===== REPORTS PAGE (Weekly, Monthly, Yearly) =====
 import { getTransactions, getSettings } from '../store.js';
 import { fmt, formatDate, getCat, getWeekDates, PAYMENT_LABELS } from '../utils.js';
+import { escapeHTML } from '../sanitize.js';
 import { drawPieChart, drawBarChart, drawLineChart } from '../charts.js';
 
 function getExpenses(start, end) {
@@ -55,7 +56,7 @@ export function renderWeekly(container) {
       <div class="header">
         <div>
           <h2>Weekly Report</h2>
-          <p class="text-sm text-muted">${formatDate(weekStart, settings.dateFormat)} — ${formatDate(weekEnd, settings.dateFormat)}</p>
+          <p class="text-sm text-muted">${escapeHTML(formatDate(weekStart, settings.dateFormat))} — ${escapeHTML(formatDate(weekEnd, settings.dateFormat))}</p>
         </div>
         <div class="header-actions">
           <div class="period-nav">
@@ -92,7 +93,7 @@ export function renderWeekly(container) {
                 <div class="flex flex-center flex-between mb-8">
                   <div class="flex flex-center gap-8">
                     <div style="width:8px;height:8px;border-radius:50%;background:${getCat(c.category).color}" aria-hidden="true"></div>
-                    <span class="text-sm">${getCat(c.category).icon} ${getCat(c.category).name}</span>
+                    <span class="text-sm">${getCat(c.category).icon} ${escapeHTML(getCat(c.category).name)}</span>
                   </div>
                   <span class="text-sm" style="font-weight:600">${fmt(c.amount, settings.currency)}</span>
                 </div>
@@ -110,8 +111,8 @@ export function renderWeekly(container) {
               <div class="flex flex-center gap-8">
                 <div class="transaction-icon" style="background:${cat.color}22;color:${cat.color}" aria-hidden="true">${cat.icon}</div>
                 <div>
-                  <div class="text-sm" style="font-weight:500">${t.description || cat.name}</div>
-                  <div class="text-sm text-muted">${formatDate(t.date, settings.dateFormat)}</div>
+                  <div class="text-sm" style="font-weight:500">${escapeHTML(t.description || cat.name)}</div>
+                  <div class="text-sm text-muted">${escapeHTML(formatDate(t.date, settings.dateFormat))}</div>
                 </div>
               </div>
               <span style="font-weight:600;color:var(--red)">- ${fmt(t.amount, settings.currency)}</span>
@@ -169,7 +170,7 @@ export function renderMonthly(container) {
     <div class="fade-in">
       <div class="header">
         <div>
-          <h2>Monthly Report — ${monthName}</h2>
+          <h2>Monthly Report — ${escapeHTML(monthName)}</h2>
         </div>
         <div class="header-actions">
           <div class="period-nav">
@@ -205,7 +206,7 @@ export function renderMonthly(container) {
               ${catSpending.map(c => `
                 <div style="margin-bottom:10px">
                   <div class="flex flex-center flex-between mb-8">
-                    <span class="text-sm">${getCat(c.category).icon} ${getCat(c.category).name}</span>
+                    <span class="text-sm">${getCat(c.category).icon} ${escapeHTML(getCat(c.category).name)}</span>
                     <span class="text-sm" style="font-weight:600">${fmt(c.amount, settings.currency)} <span class="text-muted">(${c.pct.toFixed(0)}%)</span></span>
                   </div>
                   <div class="progress-bar">
@@ -222,7 +223,7 @@ export function renderMonthly(container) {
           <div class="panel-header"><h3>Payment Methods</h3></div>
           ${payData.map(p => `
             <div class="flex flex-center flex-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
-              <span class="text-sm">${PAYMENT_LABELS[p.payment] || p.payment}</span>
+              <span class="text-sm">${escapeHTML(PAYMENT_LABELS[p.payment] || p.payment)}</span>
               <div class="flex flex-center gap-8">
                 <div class="progress-bar" style="width:100px">
                   <div class="progress-fill" style="width:${totalExp ? (p.amount / totalExp * 100) : 0}%;background:var(--accent)"></div>
@@ -238,14 +239,14 @@ export function renderMonthly(container) {
             <span style="font-size:1.5rem" aria-hidden="true">🏆</span>
             <div>
               <div class="text-sm" style="font-weight:600">Highest Spending Day</div>
-              <div class="text-sm text-muted">${topDay[0] ? formatDate(topDay[0], settings.dateFormat) + ' — ' + fmt(topDay[1], settings.currency) : 'N/A'}</div>
+              <div class="text-sm text-muted">${topDay[0] ? escapeHTML(formatDate(topDay[0], settings.dateFormat)) + ' — ' + fmt(topDay[1], settings.currency) : 'N/A'}</div>
             </div>
           </div>
           <div class="flex flex-center gap-8 mb-16" style="padding:12px;background:var(--bg3)">
             <span style="font-size:1.5rem" aria-hidden="true">${catData.length ? getCat(catData[0].category).icon : '📊'}</span>
             <div>
               <div class="text-sm" style="font-weight:600">Top Category</div>
-              <div class="text-sm text-muted">${catData.length ? getCat(catData[0].category).name + ' — ' + fmt(catData[0].amount, settings.currency) : 'N/A'}</div>
+              <div class="text-sm text-muted">${catData.length ? escapeHTML(getCat(catData[0].category).name) + ' — ' + fmt(catData[0].amount, settings.currency) : 'N/A'}</div>
             </div>
           </div>
           <div class="flex flex-center gap-8" style="padding:12px;background:var(--bg3)">
@@ -337,7 +338,7 @@ export function renderYearly(container) {
             <div class="flex flex-center flex-between" style="padding:10px 0;border-bottom:1px solid var(--border)">
               <div class="flex flex-center gap-8">
                 <span style="font-weight:700;color:var(--text3);width:20px">${i + 1}.</span>
-                <span>${getCat(c.category).icon} ${getCat(c.category).name}</span>
+                <span>${getCat(c.category).icon} ${escapeHTML(getCat(c.category).name)}</span>
               </div>
               <span style="font-weight:600">${fmt(c.amount, settings.currency)}</span>
             </div>
@@ -356,7 +357,7 @@ export function renderYearly(container) {
                 <div class="flex flex-center flex-between mb-8">
                   <div class="flex flex-center gap-8">
                     <div style="width:8px;height:8px;border-radius:50%;background:${getCat(c.category).color}" aria-hidden="true"></div>
-                    <span class="text-sm">${getCat(c.category).name}</span>
+                    <span class="text-sm">${escapeHTML(getCat(c.category).name)}</span>
                   </div>
                   <span class="text-sm" style="font-weight:600">${fmt(c.amount, settings.currency)}</span>
                 </div>

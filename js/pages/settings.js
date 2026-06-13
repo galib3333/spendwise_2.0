@@ -1,5 +1,6 @@
 // ===== SETTINGS PAGE =====
 import { getSettings, updateSettings, clearAllData } from '../store.js';
+import { escapeHTML } from '../sanitize.js';
 import { toastSuccess } from '../toast.js';
 import { hasPIN, isLockEnabled, getLockTimeout, setLockTimeout, getPrivacyPolicy } from '../security.js';
 import { changePIN, disableLock, showLockScreen } from '../lockscreen.js';

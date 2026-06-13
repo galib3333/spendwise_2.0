@@ -19,7 +19,18 @@ export function navigate(page) {
   const main = document.getElementById('mainContent');
   if(main) {
     main.innerHTML = '';
-    pageRenderers[page](main);
+    try {
+      pageRenderers[page](main);
+    } catch(err) {
+      console.error(`Error rendering page "${page}":`, err);
+      main.innerHTML = `
+        <div style="padding:40px;text-align:center;color:var(--text2)">
+          <h2 style="color:var(--red)">Something went wrong</h2>
+          <p style="margin:12px 0">Failed to load the ${page} page.</p>
+          <button onclick="location.reload()" style="margin-top:12px;padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:4px;cursor:pointer">Reload Page</button>
+        </div>
+      `;
+    }
   }
 
   toggleSidebar(false);
@@ -44,6 +55,12 @@ function toggleSidebar(force) {
 export function initRouter() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => navigate(item.dataset.page));
+    item.addEventListener('keydown', e => {
+      if(e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        navigate(item.dataset.page);
+      }
+    });
   });
 
   const hamburger = document.getElementById('hamburgerBtn');

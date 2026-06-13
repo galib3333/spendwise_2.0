@@ -1,6 +1,7 @@
 // ===== EXPORT PAGE =====
 import { getTransactions, getBudgets, getSavingsGoals, getRecurringList, addBulkTransactions, replaceAllData } from '../store.js';
 import { today, fmt, getCat, escapeCSV, parseCSVSimple, detectBankFormat, mapCSVRow, sanitizeImportData, uid } from '../utils.js';
+import { escapeHTML } from '../sanitize.js';
 import { toastSuccess, toastError } from '../toast.js';
 import { encryptData, decryptData } from '../security.js';
 
@@ -372,11 +373,11 @@ function updatePreview() {
     const cat = getCat(t.category);
     return `
       <tr style="opacity:${valid ? 1 : 0.4}">
-        <td class="text-sm">${t.date}</td>
+        <td class="text-sm">${escapeHTML(t.date)}</td>
         <td><span class="badge badge-${t.type === 'income' ? 'success' : 'danger'}" style="font-size:0.5rem">${t.type}</span></td>
-        <td class="text-sm">${cat.icon} ${cat.name}</td>
+        <td class="text-sm">${cat.icon} ${escapeHTML(cat.name)}</td>
         <td class="text-sm" style="font-weight:600;color:${t.type === 'income' ? 'var(--green)' : 'var(--red)'}">${t.amount > 0 ? fmt(t.amount, '৳') : '—'}</td>
-        <td class="text-sm" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description || '—'}</td>
+        <td class="text-sm" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(t.description) || '—'}</td>
         <td class="text-sm">${valid ? '<span style="color:var(--green)">✓</span>' : '<span style="color:var(--red)">✗</span>'}</td>
       </tr>
     `;
