@@ -35,8 +35,9 @@ const server = http.createServer((req, res) => {
 
   // Prevent directory traversal
   const url = new URL(req.url, `http://${req.headers.host}`);
-  const safePath = path.normalize(url.pathname).replace(/^(\.\.[\/\\])+/, '');
-  let filePath = path.join(DIR, safePath === '/' ? 'index.html' : safePath);
+  const isRoot = url.pathname === '/' || url.pathname === '';
+  const safePath = isRoot ? '/' : path.normalize(url.pathname).replace(/^(\.\.[\/\\])+/, '');
+  let filePath = path.join(DIR, isRoot ? 'index.html' : safePath);
 
   // Ensure the resolved path is within the project directory
   if (!filePath.startsWith(DIR)) {

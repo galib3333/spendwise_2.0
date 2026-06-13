@@ -450,7 +450,7 @@ export function renderDashboard(container) {
             <span class="text-sm text-muted">This month</span>
           </div>
           <div class="chart-split" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
-            <div class="chart-container" style="flex:1;min-width:180px;max-width:240px">
+            <div class="chart-container" style="flex:1;min-width:180px;max-width:280px">
               <canvas id="dashPie" aria-label="Spending breakdown pie chart"></canvas>
             </div>
             <div style="flex:1;min-width:200px">

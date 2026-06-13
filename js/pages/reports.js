@@ -85,7 +85,7 @@ export function renderWeekly(container) {
         <div class="panel">
           <div class="panel-header"><h3>By Category</h3></div>
           <div class="chart-split" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px;max-width:200px">
+            <div style="flex:1;min-width:180px">
               <canvas id="weeklyPie" aria-label="Category breakdown pie chart"></canvas>
             </div>
             <div style="flex:1;min-width:160px">
@@ -199,7 +199,7 @@ export function renderMonthly(container) {
         <div class="panel">
           <div class="panel-header"><h3>Category Breakdown</h3></div>
           <div class="chart-split" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px;max-width:200px">
+            <div style="flex:1;min-width:180px">
               <canvas id="monthlyPie" aria-label="Category breakdown pie chart"></canvas>
             </div>
             <div style="flex:1;min-width:180px">
@@ -349,7 +349,7 @@ export function renderYearly(container) {
         <div class="panel">
           <div class="panel-header"><h3>Expense by Category</h3></div>
           <div class="chart-split" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap">
-            <div style="flex:1;min-width:140px;max-width:220px">
+            <div style="flex:1;min-width:180px;max-width:260px">
               <canvas id="yearlyPie" aria-label="Expense by category pie chart"></canvas>
             </div>
             <div style="flex:1;min-width:180px">
