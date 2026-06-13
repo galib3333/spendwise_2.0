@@ -102,6 +102,11 @@ function bindPinKeys() {
     } else if (e.key === 'Backspace') {
       e.preventDefault();
       handleKeyInput('del');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (!_processing && _pin.length >= MIN_PIN && (_step === 'enter' || _step === 'change')) {
+        handlePinComplete();
+      }
     }
   }, { signal });
 }

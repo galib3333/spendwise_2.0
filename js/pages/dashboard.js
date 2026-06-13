@@ -20,7 +20,6 @@ function sumByCategory(items) {
 let dashMonthOffset = 0;
 
 function calcHealthScore(monthStart, monthEnd) {
-  const t = today();
   const now = new Date();
   const thisMonthExp = getExpenses(monthStart, monthEnd);
 
@@ -34,38 +33,112 @@ function calcHealthScore(monthStart, monthEnd) {
   const totalInc = thisMonthInc.reduce((s, x) => s + x.amount, 0);
   const totalExpLast = lastMonthExp.reduce((s, x) => s + x.amount, 0);
 
+  const factors = {};
+
+  // Savings Rate
+  let savingsPts = 0;
+  let savingsRate = 0;
+  if (totalInc > 0) {
+    savingsRate = Math.max(0, (totalInc - totalExp) / totalInc);
+    savingsPts = savingsRate * 30;
+  }
+  factors.savings = { pts: Math.round(savingsPts), max: 30, rate: savingsRate };
+
+  // Budget Adherence
+  const budgets = getBudgets();
+  let budgetPts = 0;
+  let overBudgetCats = [];
+  if (budgets.length > 0) {
+    const budgetScore = budgets.reduce((acc, b) => {
+      const spent = thisMonthExp.filter(e => e.category === b.category).reduce((s, x) => s + x.amount, 0);
+      const ratio = spent / b.limit;
+      if (ratio <= 0.8) return acc + 1;
+      if (ratio <= 1.0) return acc + 0.5;
+      overBudgetCats.push({ ...b, spent, ratio });
+      return acc;
+    }, 0);
+    budgetPts = (budgetScore / budgets.length) * 10;
+  }
+  factors.budget = { pts: Math.round(budgetPts * 10) / 10, max: 10, overBudget: overBudgetCats };
+
+  // Spending Trend
+  let trendPts = 0;
+  let expChange = 0;
+  if (totalExpLast > 0) {
+    expChange = (totalExp - totalExpLast) / totalExpLast;
+    if (expChange < -0.1) trendPts = 5;
+    else if (expChange > 0.2) trendPts = -5;
+  }
+  factors.trend = { pts: trendPts, max: 5, change: expChange };
+
+  let score = 50 + savingsPts + budgetPts + trendPts;
+  if (getTransactions().length === 0) score = 0;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+
+  // Last month score for comparison
+  let lastScore = null;
+  if (totalExpLast > 0 || getIncome(lmStart, lmEnd).reduce((s, x) => s + x.amount, 0) > 0) {
+    lastScore = calcHealthScoreRaw(lmStart, lmEnd, dashMonthOffset - 1);
+  }
+
+  // Generate actionable insights
+  const insights = [];
+  if (totalInc > 0 && savingsRate < 0.2) {
+    insights.push({ icon: '💰', text: `Savings rate is <strong>${Math.round(savingsRate * 100)}%</strong> — aim for at least 20%`, color: savingsRate < 0.1 ? 'var(--red)' : 'var(--yellow)' });
+  }
+  if (overBudgetCats.length > 0) {
+    const names = overBudgetCats.map(c => getCat(c.category).name).slice(0, 2);
+    insights.push({ icon: '📊', text: `Over budget in <strong>${names.join(', ')}</strong>`, color: 'var(--red)' });
+  }
+  if (expChange > 0.2 && totalExpLast > 0) {
+    const topCats = sumByCategory(thisMonthExp).slice(0, 2);
+    const topNames = topCats.map(c => getCat(c.category).name).join(', ');
+    insights.push({ icon: '📈', text: `Spending up <strong>${Math.round(expChange * 100)}%</strong> vs last month — mainly ${topNames}`, color: 'var(--red)' });
+  } else if (expChange < -0.1 && totalExpLast > 0) {
+    insights.push({ icon: '📉', text: `Spending down <strong>${Math.abs(Math.round(expChange * 100))}%</strong> vs last month — nice work!`, color: 'var(--green)' });
+  }
+  if (thisMonthExp.length > 0 && budgets.length === 0) {
+    insights.push({ icon: '🎯', text: `Set a budget to get personalized spending alerts`, color: 'var(--accent)' });
+  }
+
+  return { score, factors, lastScore, insights };
+}
+
+function calcHealthScoreRaw(monthStart, monthEnd, offset) {
+  const now = new Date();
+  const thisMonthExp = getExpenses(monthStart, monthEnd);
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1 + offset, 1);
+  const lmStart = lastMonth.toISOString().slice(0, 7) + '-01';
+  const lmEnd = new Date(lastMonth.getFullYear(), lastMonth.getMonth() + 1, 0).toISOString().slice(0, 10);
+  const lastMonthExp = getExpenses(lmStart, lmEnd);
+  const thisMonthInc = getIncome(monthStart, monthEnd);
+  const totalExp = thisMonthExp.reduce((s, x) => s + x.amount, 0);
+  const totalInc = thisMonthInc.reduce((s, x) => s + x.amount, 0);
+  const totalExpLast = lastMonthExp.reduce((s, x) => s + x.amount, 0);
+
   let score = 50;
-  if(totalInc > 0) {
+  if (totalInc > 0) {
     const savingsRate = Math.max(0, (totalInc - totalExp) / totalInc);
     score += savingsRate * 30;
   }
-
   const budgets = getBudgets();
-  const budgetScore = budgets.reduce((acc, b) => {
-    const spent = thisMonthExp.filter(e => e.category === b.category).reduce((s, x) => s + x.amount, 0);
-    const ratio = spent / b.limit;
-    if(ratio <= 0.8) return acc + 1;
-    if(ratio <= 1.0) return acc + 0.5;
-    return acc;
-  }, 0);
-  if(budgets.length > 0) score += (budgetScore / budgets.length) * 10;
-
-  if(totalExpLast > 0) {
-    const expChange = (totalExp - totalExpLast) / totalExpLast;
-    if(expChange < -0.1) score += 5;
-    else if(expChange > 0.2) score -= 5;
+  if (budgets.length > 0) {
+    const budgetScore = budgets.reduce((acc, b) => {
+      const spent = thisMonthExp.filter(e => e.category === b.category).reduce((s, x) => s + x.amount, 0);
+      const ratio = spent / b.limit;
+      if (ratio <= 0.8) return acc + 1;
+      if (ratio <= 1.0) return acc + 0.5;
+      return acc;
+    }, 0);
+    score += (budgetScore / budgets.length) * 10;
   }
-
-  if(getTransactions().length === 0) score = 0;
+  if (totalExpLast > 0) {
+    const expChange = (totalExp - totalExpLast) / totalExpLast;
+    if (expChange < -0.1) score += 5;
+    else if (expChange > 0.2) score -= 5;
+  }
+  if (getTransactions().length === 0) score = 0;
   return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-function getScoreGrade(score) {
-  if(score >= 85) return { grade: 'A', color: 'var(--green)', msg: 'Excellent financial health. Keep it up!' };
-  if(score >= 70) return { grade: 'B', color: 'var(--green)', msg: 'Good standing. Small tweaks could make it better.' };
-  if(score >= 50) return { grade: 'C', color: 'var(--yellow)', msg: 'Fair. Some areas need attention this month.' };
-  if(score >= 30) return { grade: 'D', color: 'var(--orange)', msg: 'Needs improvement. Review your spending habits.' };
-  return { grade: 'F', color: 'var(--red)', msg: 'Critical. Time to take control of your finances.' };
 }
 
 function getInsights(monthStart, monthEnd) {
@@ -222,8 +295,8 @@ export function renderDashboard(container) {
   const totalInc = thisMonthInc.reduce((s, x) => s + x.amount, 0);
   const savings = totalInc - totalExp;
 
-  const score = calcHealthScore(monthStart, monthEnd);
-  const { grade, color: scoreColor, msg } = getScoreGrade(score);
+  const { score, factors, lastScore, insights: healthInsights } = calcHealthScore(monthStart, monthEnd);
+  const scoreColor = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
   const insights = getInsights(monthStart, monthEnd);
   const prompts = getPrompts(monthStart, monthEnd);
   const catData = sumByCategory(thisMonthExp);
@@ -251,16 +324,56 @@ export function renderDashboard(container) {
       </div>
 
       <div class="health-score" role="region" aria-label="Financial health score">
-        <div class="health-ring">
-          <canvas id="healthRing" aria-hidden="true"></canvas>
-          <div class="score-text">
-            <span class="score-num" style="color:${scoreColor}">${score}</span>
-            <span class="score-label">Score</span>
+        <div class="health-left">
+          <div class="health-ring">
+            <canvas id="healthRing" aria-hidden="true"></canvas>
+            <div class="score-text">
+              <span class="score-num" style="color:${scoreColor}">${score}</span>
+              <span class="score-label">Score</span>
+            </div>
           </div>
+          ${lastScore !== null ? (() => {
+            const diff = score - lastScore;
+            if (diff > 0) return `<div class="health-change" style="color:var(--green)">&#9650; +${diff} vs last month</div>`;
+            if (diff < 0) return `<div class="health-change" style="color:var(--red)">&#9660; ${diff} vs last month</div>`;
+            return `<div class="health-change" style="color:var(--text3)">No change vs last month</div>`;
+          })() : ''}
         </div>
-        <div class="health-info">
-          <div class="health-grade">Grade: <span style="color:${scoreColor}">${grade}</span></div>
-          <div class="health-message">${msg}</div>
+        <div class="health-factors">
+          <div class="health-factor">
+            <div class="health-factor-header">
+              <span class="health-factor-name">Savings Rate</span>
+              <span class="health-factor-val">${factors.savings.pts}/${factors.savings.max}</span>
+            </div>
+            <div class="progress-bar" style="height:4px">
+              <div class="progress-fill" style="width:${(factors.savings.pts / factors.savings.max) * 100}%;background:${factors.savings.rate >= 0.2 ? 'var(--green)' : factors.savings.rate >= 0.1 ? 'var(--yellow)' : 'var(--red)'}"></div>
+            </div>
+          </div>
+          <div class="health-factor">
+            <div class="health-factor-header">
+              <span class="health-factor-name">Budget Adherence</span>
+              <span class="health-factor-val">${factors.budget.pts}/${factors.budget.max}</span>
+            </div>
+            <div class="progress-bar" style="height:4px">
+              <div class="progress-fill" style="width:${(factors.budget.pts / factors.budget.max) * 100}%;background:${factors.budget.pts >= 8 ? 'var(--green)' : factors.budget.pts >= 5 ? 'var(--yellow)' : 'var(--red)'}"></div>
+            </div>
+          </div>
+          <div class="health-factor">
+            <div class="health-factor-header">
+              <span class="health-factor-name">Spending Trend</span>
+              <span class="health-factor-val" style="color:${factors.trend.pts > 0 ? 'var(--green)' : factors.trend.pts < 0 ? 'var(--red)' : 'var(--text3)'}">${factors.trend.pts > 0 ? '+' : ''}${factors.trend.pts}</span>
+            </div>
+            <div class="progress-bar" style="height:4px">
+              <div class="progress-fill" style="width:${((factors.trend.pts + 5) / 10) * 100}%;background:${factors.trend.pts > 0 ? 'var(--green)' : factors.trend.pts < 0 ? 'var(--red)' : 'var(--text3)'}"></div>
+            </div>
+          </div>
+          ${healthInsights.length ? `
+            <div class="health-insights">
+              ${healthInsights.map(i => `
+                <div class="health-insight" style="color:${i.color}">${i.icon} ${i.text}</div>
+              `).join('')}
+            </div>
+          ` : ''}
         </div>
       </div>
 

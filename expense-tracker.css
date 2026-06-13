@@ -1037,12 +1037,19 @@ select {
 /* Dashboard Health Score */
 .health-score {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 24px;
   background: var(--bg2);
   border: 1px solid var(--border);
   padding: 28px 32px;
   margin-bottom: 1px;
+}
+
+.health-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 .health-ring {
@@ -1082,32 +1089,63 @@ select {
   margin-top: 2px;
 }
 
-.health-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.health-grade {
-  font-family: var(--font-mono);
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  color: var(--text3);
-  margin-bottom: 6px;
-}
-
-.health-message {
-  font-size: 0.95rem;
-  color: var(--text);
-  line-height: 1.5;
-  margin-bottom: 8px;
-}
-
 .health-change {
   font-family: var(--font-mono);
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 1px;
+  margin-top: 8px;
+  white-space: nowrap;
+}
+
+.health-factors {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.health-factor {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.health-factor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.health-factor-name {
+  font-size: 0.75rem;
+  color: var(--text2);
+}
+
+.health-factor-val {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.health-insights {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.health-insight {
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.health-insight strong {
+  font-weight: 600;
 }
 
 /* Dashboard Prompts */
@@ -1251,8 +1289,10 @@ select {
 
 /* Dashboard health responsive */
 @media(max-width:600px) {
-  .health-score { flex-direction: column; text-align: center; padding: 24px 20px; }
-  .health-ring { margin: 0 auto; }
+  .health-score { flex-direction: column; align-items: center; text-align: center; padding: 24px 20px; }
+  .health-left { align-items: center; }
+  .health-factors { width: 100%; }
+  .health-insight { text-align: left; }
   .prompts-grid { grid-template-columns: 1fr; }
   .cards-grid-3 { grid-template-columns: 1fr; }
 }
