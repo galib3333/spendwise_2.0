@@ -134,7 +134,7 @@ export function renderSettings(container) {
     } else {
       showLockScreen(() => {
         renderSettings(container);
-        toastSuccess('Lock screen enabled');
+        if(isLockEnabled()) toastSuccess('Lock screen enabled');
       });
     }
   });

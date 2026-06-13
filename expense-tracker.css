@@ -1446,6 +1446,11 @@ select {
   margin-bottom: 8px;
 }
 .lock-setup .pin-key.confirm { background: var(--green); color: var(--bg); border-color: var(--green); }
+.lock-actions {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
 .lock-footer {
   margin-top: 16px;
 }
