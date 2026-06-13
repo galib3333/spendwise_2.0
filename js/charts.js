@@ -55,13 +55,13 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 export function drawPieChart(canvasId, data, total, currency) {
-  const s = setupCanvas(canvasId, 220);
+  const s = setupCanvas(canvasId, 260);
   if(!s) return;
   const { ctx, w, h } = s;
 
   if(!data.length) { drawNoData(ctx, w, h); return; }
 
-  const cx = h / 2, cy = h / 2, r = Math.min(cx, cy) - 20;
+  const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) - 24;
   let start = -Math.PI / 2;
 
   data.forEach(d => {
@@ -75,8 +75,8 @@ export function drawPieChart(canvasId, data, total, currency) {
 
     if(angle > 0.15) {
       const mid = start + angle / 2;
-      const tx = cx + Math.cos(mid) * (r * 0.6);
-      const ty = cy + Math.sin(mid) * (r * 0.6);
+      const tx = cx + Math.cos(mid) * (r * 0.65);
+      const ty = cy + Math.sin(mid) * (r * 0.65);
       ctx.fillStyle = '#fff';
       ctx.font = 'bold ' + getFont(11);
       ctx.textAlign = 'center';
@@ -86,15 +86,15 @@ export function drawPieChart(canvasId, data, total, currency) {
   });
 
   ctx.beginPath();
-  ctx.arc(cx, cy, r * 0.45, 0, Math.PI * 2);
+  ctx.arc(cx, cy, r * 0.5, 0, Math.PI * 2);
   ctx.fillStyle = getThemeColor('--bg2');
   ctx.fill();
 
   ctx.fillStyle = getThemeColor('--text');
-  ctx.font = 'bold ' + getFont(16);
+  ctx.font = 'bold ' + getFont(14);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(_fmt(total, currency || '₹'), cx, cy - 8);
+  ctx.fillText(_fmt(total, currency || '৳'), cx, cy - 8);
   ctx.font = getFont(11);
   ctx.fillStyle = getThemeColor('--text3');
   ctx.fillText('Total', cx, cy + 10);
