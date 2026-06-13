@@ -1352,11 +1352,233 @@ select {
 /* 3-column cards grid variant */
 .cards-grid-3 { grid-template-columns: repeat(3, 1fr); }
 
-.fade-in { animation: fadeIn 0.3s ease; }
+/* ===== ANIMATIONS ===== */
+
+/* Page entrance */
+.fade-in { animation: fadeIn 1.2s cubic-bezier(0.25,0.1,0.25,1) both; }
 
 @keyframes fadeIn {
-  from { opacity:0; transform:translateY(8px); }
+  from { opacity:0; transform:translateY(16px); }
   to { opacity:1; transform:translateY(0); }
+}
+
+/* Staggered card entrance */
+.cards-grid .card,
+.cards-grid-3 .card {
+  animation: cardIn 1.2s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+.cards-grid .card:nth-child(1), .cards-grid-3 .card:nth-child(1) { animation-delay: 0.15s; }
+.cards-grid .card:nth-child(2), .cards-grid-3 .card:nth-child(2) { animation-delay: 0.3s; }
+.cards-grid .card:nth-child(3), .cards-grid-3 .card:nth-child(3) { animation-delay: 0.45s; }
+.cards-grid .card:nth-child(4), .cards-grid-3 .card:nth-child(4) { animation-delay: 0.6s; }
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Card hover lift */
+.card {
+  transition: background var(--transition), transform 0.4s cubic-bezier(0.25,0.1,0.25,1), box-shadow 0.4s ease;
+}
+.card:hover {
+  background: var(--bg3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 1;
+  position: relative;
+}
+
+/* Panel entrance */
+.panel {
+  animation: panelIn 1.2s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* FAB subtle breathing pulse when idle */
+.fab {
+  animation: fabPulse 4s ease-in-out infinite;
+}
+.fab:hover {
+  animation: none;
+  opacity: 0.85;
+  transform: scale(1.08);
+}
+.fab:active {
+  transform: scale(0.95);
+  transition: transform 0.15s ease;
+}
+
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,216,192,0.3); }
+  50% { box-shadow: 0 0 0 10px rgba(220,216,192,0); }
+}
+
+/* Nav item active indicator slide-in */
+.nav-item.active::before {
+  animation: navIndicator 0.8s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+
+@keyframes navIndicator {
+  from { height: 0; opacity: 0; }
+  to { height: 60%; opacity: 1; }
+}
+
+/* Nav item hover glow */
+.nav-item {
+  transition: all 0.4s cubic-bezier(0.25,0.1,0.25,1);
+}
+.nav-item:hover {
+  transform: translateX(3px);
+}
+.nav-item.active:hover {
+  transform: translateX(0);
+}
+
+/* Button press effect */
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+  transition: transform 0.15s ease;
+}
+
+/* Budget / Recurring row hover slide */
+.budget-row,
+.recurring-row {
+  transition: background 0.35s ease, transform 0.35s ease, padding-left 0.35s ease;
+}
+.budget-row:hover,
+.recurring-row:hover {
+  background: var(--glass);
+  padding-left: 4px;
+}
+
+/* Badge pop-in */
+.badge {
+  animation: badgePop 0.8s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Progress bar animated fill on first render */
+.progress-fill {
+  animation: progressFill 1.8s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+
+@keyframes progressFill {
+  from { width: 0; }
+}
+
+/* Health ring draw animation */
+.health-ring canvas {
+  animation: ringDraw 1.4s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+
+@keyframes ringDraw {
+  from { opacity: 0; transform: scale(0.7) rotate(-40deg); }
+  to { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+/* Score number count-up feel */
+.score-num {
+  animation: scoreIn 1.2s cubic-bezier(0.34,1.56,0.64,1) 0.4s both;
+}
+
+@keyframes scoreIn {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Prompt card stagger */
+.prompts-grid .prompt-card {
+  animation: promptIn 1s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+.prompts-grid .prompt-card:nth-child(1) { animation-delay: 0.15s; }
+.prompts-grid .prompt-card:nth-child(2) { animation-delay: 0.3s; }
+.prompts-grid .prompt-card:nth-child(3) { animation-delay: 0.45s; }
+.prompts-grid .prompt-card:nth-child(4) { animation-delay: 0.6s; }
+
+@keyframes promptIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Insight row slide-in */
+.insight-row {
+  animation: insightIn 0.8s ease both;
+}
+.insight-row:nth-child(1) { animation-delay: 0.15s; }
+.insight-row:nth-child(2) { animation-delay: 0.3s; }
+.insight-row:nth-child(3) { animation-delay: 0.45s; }
+.insight-row:nth-child(4) { animation-delay: 0.6s; }
+.insight-row:nth-child(5) { animation-delay: 0.75s; }
+
+@keyframes insightIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Savings goal card stagger */
+.savings-grid .panel {
+  animation: cardIn 1.2s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+.savings-grid .panel:nth-child(1) { animation-delay: 0.15s; }
+.savings-grid .panel:nth-child(2) { animation-delay: 0.3s; }
+.savings-grid .panel:nth-child(3) { animation-delay: 0.45s; }
+.savings-grid .panel:nth-child(4) { animation-delay: 0.6s; }
+
+/* Export page cards stagger */
+[data-action] {
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+[data-action]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+[data-action]:active {
+  transform: scale(0.98);
+}
+
+/* Quick-add overlay slide up */
+.quick-add-overlay.show .quick-add-panel {
+  animation: slideUp 1s cubic-bezier(0.25,0.1,0.25,1) both;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Theme toggle spin */
+.toggle.active::after {
+  animation: toggleSpin 0.8s ease;
+}
+
+@keyframes toggleSpin {
+  from { transform: translateX(100%) rotate(180deg); }
+  to { transform: translateX(100%) rotate(360deg); }
+}
+
+/* Table row stagger on page load */
+.tx-table tbody tr {
+  animation: rowIn 0.7s ease both;
+}
+.tx-table tbody tr:nth-child(1) { animation-delay: 0.08s; }
+.tx-table tbody tr:nth-child(2) { animation-delay: 0.16s; }
+.tx-table tbody tr:nth-child(3) { animation-delay: 0.24s; }
+.tx-table tbody tr:nth-child(4) { animation-delay: 0.32s; }
+.tx-table tbody tr:nth-child(5) { animation-delay: 0.4s; }
+.tx-table tbody tr:nth-child(n+6) { animation-delay: 0.48s; }
+
+@keyframes rowIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
 }
 
 /* Touch-friendly improvements */
