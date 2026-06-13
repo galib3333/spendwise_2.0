@@ -66,7 +66,8 @@ function renderPinPad() {
 
 function isPinReady() {
   if (_step === 'confirm') return _pin.length === _setupPin.length;
-  return _pin.length >= MIN_PIN;
+  if (_step === 'setup') return _pin.length >= MIN_PIN;
+  return false;
 }
 
 function handleKeyInput(key) {
@@ -116,6 +117,9 @@ function renderEnterScreen() {
     <p>Enter your PIN to unlock</p>
     ${renderDots(_pin.length)}
     <div class="lock-error" id="lockError"></div>
+    <div class="lock-actions" style="display:${_pin.length >= MIN_PIN ? 'flex' : 'none'}">
+      <button type="button" class="btn btn-primary" id="lockSubmitBtn">Unlock</button>
+    </div>
     ${renderPinPad()}
     <div class="lock-footer">
       <button type="button" id="lockPrivacyLink">Privacy Policy</button>
@@ -123,6 +127,9 @@ function renderEnterScreen() {
   `;
   bindPinKeys();
   document.getElementById('lockPrivacyLink')?.addEventListener('click', showPrivacyModal);
+  document.getElementById('lockSubmitBtn')?.addEventListener('click', () => {
+    if (!_processing && _pin.length >= MIN_PIN) handlePinComplete();
+  });
 }
 
 function renderSetupScreen() {
@@ -172,15 +179,25 @@ function renderChangeScreen() {
     <p>Enter your current PIN</p>
     ${renderDots(_pin.length)}
     <div class="lock-error" id="lockError"></div>
+    <div class="lock-actions" style="display:${_pin.length >= MIN_PIN ? 'flex' : 'none'}">
+      <button type="button" class="btn btn-primary" id="lockSubmitBtn">Continue</button>
+    </div>
     ${renderPinPad()}
   `;
   bindPinKeys();
+  document.getElementById('lockSubmitBtn')?.addEventListener('click', () => {
+    if (!_processing && _pin.length >= MIN_PIN) handlePinComplete();
+  });
 }
 
 function updateContinueBtn() {
-  if (_step !== 'setup') return;
-  const actions = document.querySelector('.lock-actions');
-  if (actions) actions.style.display = _pin.length >= MIN_PIN ? 'flex' : 'none';
+  if (_step === 'setup') {
+    const actions = document.querySelector('.lock-actions');
+    if (actions) actions.style.display = _pin.length >= MIN_PIN ? 'flex' : 'none';
+  } else if (_step === 'enter' || _step === 'change') {
+    const actions = document.querySelector('.lock-actions');
+    if (actions) actions.style.display = _pin.length >= MIN_PIN ? 'flex' : 'none';
+  }
 }
 
 // ===== STATE MANAGEMENT =====

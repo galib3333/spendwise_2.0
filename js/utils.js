@@ -1,25 +1,25 @@
 // ===== CONSTANTS =====
 export const EXPENSE_CATS = [
-  {id:'food',name:'Food & Dining',icon:'🍽️',color:'#fdcb6e'},
-  {id:'transport',name:'Transport',icon:'🚗',color:'#74b9ff'},
-  {id:'bills',name:'Bills & Utilities',icon:'💡',color:'#e17055'},
-  {id:'entertainment',name:'Entertainment',icon:'🎬',color:'#fd79a8'},
-  {id:'health',name:'Health',icon:'🏥',color:'#00b894'},
-  {id:'shopping',name:'Shopping',icon:'🛍️',color:'#a29bfe'},
-  {id:'education',name:'Education',icon:'📚',color:'#6c5ce7'},
-  {id:'rent',name:'Rent',icon:'🏠',color:'#e17055'},
-  {id:'groceries',name:'Groceries',icon:'🛒',color:'#00b894'},
-  {id:'subscriptions',name:'Subscriptions',icon:'📱',color:'#fd79a8'},
-  {id:'personal',name:'Personal Care',icon:'💇',color:'#fdcb6e'},
-  {id:'other-exp',name:'Other Expense',icon:'📦',color:'#9aa0b0'}
+  {id:'food',name:'Food & Dining',icon:'🍽️',color:'#f44336'},
+  {id:'transport',name:'Transport',icon:'🚗',color:'#2196f3'},
+  {id:'bills',name:'Bills & Utilities',icon:'💡',color:'#ff9800'},
+  {id:'entertainment',name:'Entertainment',icon:'🎬',color:'#9c27b0'},
+  {id:'health',name:'Health',icon:'🏥',color:'#4caf50'},
+  {id:'shopping',name:'Shopping',icon:'🛍️',color:'#e91e63'},
+  {id:'education',name:'Education',icon:'📚',color:'#00bcd4'},
+  {id:'rent',name:'Rent',icon:'🏠',color:'#ff5722'},
+  {id:'groceries',name:'Groceries',icon:'🛒',color:'#8bc34a'},
+  {id:'subscriptions',name:'Subscriptions',icon:'📱',color:'#673ab7'},
+  {id:'personal',name:'Personal Care',icon:'💇',color:'#ffeb3b'},
+  {id:'other-exp',name:'Other Expense',icon:'📦',color:'#607d8b'}
 ];
 export const INCOME_CATS = [
-  {id:'salary',name:'Salary',icon:'💰',color:'#00b894'},
-  {id:'freelance',name:'Freelance',icon:'💻',color:'#74b9ff'},
-  {id:'investment',name:'Investment',icon:'📈',color:'#a29bfe'},
-  {id:'business',name:'Business',icon:'🏢',color:'#fdcb6e'},
-  {id:'gift',name:'Gift',icon:'🎁',color:'#fd79a8'},
-  {id:'other-inc',name:'Other Income',icon:'💎',color:'#9aa0b0'}
+  {id:'salary',name:'Salary',icon:'💰',color:'#009688'},
+  {id:'freelance',name:'Freelance',icon:'💻',color:'#3f51b5'},
+  {id:'investment',name:'Investment',icon:'📈',color:'#795548'},
+  {id:'business',name:'Business',icon:'🏢',color:'#ffc107'},
+  {id:'gift',name:'Gift',icon:'🎁',color:'#03a9f4'},
+  {id:'other-inc',name:'Other Income',icon:'💎',color:'#9e9e9e'}
 ];
 export const ALL_CATS = [...EXPENSE_CATS, ...INCOME_CATS];
 export const PAYMENT_LABELS = {cash:'Cash',card:'Debit Card',credit:'Credit Card',upi:'UPI',bank:'Bank Transfer',wallet:'Digital Wallet'};
